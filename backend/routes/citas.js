@@ -1,3 +1,4 @@
+// backend/routes/citas.js
 const express = require('express');
 const router  = express.Router();
 const pool    = require('../config/db');
@@ -13,12 +14,11 @@ router.get('/', async (req, res) => {
       FROM citas c
       JOIN pacientes  p  ON c.id_paciente  = p.id_paciente
       JOIN psicologos ps ON c.id_psicologo = ps.id_psicologo
-      WHERE 1=1
+      WHERE c.activo = true
     `;
     const vals = [];
     let paramIndex = 1;
 
-    // CORRECCIÓN: Construcción dinámica con marcadores posicionales PostgreSQL ($1, $2...)
     if (id_psicologo) { 
       sql += ` AND c.id_psicologo = $${paramIndex}`; 
       vals.push(id_psicologo); 
@@ -71,21 +71,20 @@ router.post('/', async (req, res) => {
   try {
     const [conflict] = await pool.query(
       `SELECT id_cita FROM citas
-       WHERE id_psicologo = $1 AND fecha_hora = $2 AND estado = 'programada' AND activo = 1`,
+       WHERE id_psicologo = $1 AND fecha_hora = $2 AND estado = 'programada' AND c.activo = true`,
       [id_psicologo, fecha_hora]
     );
     if (conflict.length) {
       return res.status(409).json({ error: 'Conflicto de horario: el psicólogo ya tiene una cita programada en esa fecha y hora' });
     }
     
-    // CORRECCIÓN: PostgreSQL usa RETURNING para obtener el ID recién generado
     const [rows] = await pool.query(
-      'INSERT INTO citas (id_paciente, id_psicologo, fecha_hora, motivo) VALUES ($1, $2, $3, $4) RETURNING id_cita',
+      'INSERT INTO citas (id_paciente, id_psicologo, fecha_hora, motivo, estado, activo) VALUES ($1, $2, $3, $4, \'programada\', true) RETURNING id_cita',
       [id_paciente, id_psicologo, fecha_hora, motivo || null]
     );
     res.status(201).json({ id_cita: rows[0].id_cita, message: 'Cita agendada exitosamente' });
   } catch (err) {
-    if (err.code === '23503' || err.message.includes('violates foreign key')) return res.status(400).json({ error: 'id_paciente o id_psicologo no existen' });
+    if (err.code === '23503' || err.message.includes('fk')) return res.status(400).json({ error: 'id_paciente o id_psicologo no existen' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -97,7 +96,7 @@ router.put('/:id', async (req, res) => {
     if (fecha_hora && id_psicologo) {
       const [conflict] = await pool.query(
         `SELECT id_cita FROM citas
-         WHERE id_psicologo = $1 AND fecha_hora = $2 AND estado = 'programada' AND activo = 1 AND id_cita != $3`,
+         WHERE id_psicologo = $1 AND fecha_hora = $2 AND estado = 'programada' AND activo = true AND id_cita != $3`,
         [id_psicologo, fecha_hora, req.params.id]
       );
       if (conflict.length) {
@@ -114,7 +113,7 @@ router.put('/:id', async (req, res) => {
     if (fecha_hora !== undefined)   { fields.push(`fecha_hora = $${paramIndex}`);   values.push(fecha_hora); paramIndex++; }
     if (motivo !== undefined)       { fields.push(`motivo = $${paramIndex}`);       values.push(motivo); paramIndex++; }
     if (estado !== undefined)       { fields.push(`estado = $${paramIndex}`);       values.push(estado); paramIndex++; }
-    if (activo !== undefined)       { fields.push(`activo = $${paramIndex}`);       values.push(activo); paramIndex++; }
+    if (activo !== undefined)       { fields.push(`activo = $${paramIndex}`);       values.push(activo === true || activo === 1); paramIndex++; }
     
     if (!fields.length) return res.status(400).json({ error: 'No se enviaron campos para actualizar' });
     
@@ -129,17 +128,17 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/citas/:id
 router.delete('/:id', async (req, res) => {
   try {
-    await pool.query(`UPDATE citas SET activo = 0, estado = 'cancelada' WHERE id_cita = $1`, [req.params.id]);
+    await pool.query(`UPDATE citas SET activo = false, estado = 'cancelada' WHERE id_cita = $1`, [req.params.id]);
     res.json({ message: 'Cita cancelada exitosamente' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/citas/stats/resumen
+// GET /api/citas/stats/resumen — ESTADÍSTICAS DEL DASHBOARD
 router.get('/stats/resumen', async (req, res) => {
   try {
-    // CORRECCIÓN: PostgreSQL no evalúa expresiones booleanas directas en SUM(), se usa CASE WHEN
+    // CORRECCIÓN POSTGRESQL: Se reemplazan las evaluaciones directas por estructuras CASE WHEN válidas
     const [citasRows] = await pool.query(`
       SELECT
         COUNT(*) AS total_citas,
@@ -148,17 +147,18 @@ router.get('/stats/resumen', async (req, res) => {
         SUM(CASE WHEN estado = 'cancelada' THEN 1 ELSE 0 END)  AS canceladas
       FROM citas
     `);
-    const [pacientesRows] = await pool.query('SELECT COUNT(*) AS total FROM pacientes WHERE activo = 1');
-    const [psicologosRows] = await pool.query('SELECT COUNT(*) AS total FROM psicologos WHERE activo = 1');
     
-    const totales = citasRows[0];
+    const [pacientesRows] = await pool.query('SELECT COUNT(*) AS total FROM pacientes WHERE activo = true');
+    const [psicologosRows] = await pool.query('SELECT COUNT(*) AS total FROM psicologos WHERE activo = true');
+    
+    const totales = citasRows[0] || {};
     res.json({ 
       total_citas: parseInt(totales.total_citas || 0), 
       programadas: parseInt(totales.programadas || 0), 
       realizadas: parseInt(totales.realizadas || 0), 
       canceladas: parseInt(totales.canceladas || 0), 
-      total_pacientes: parseInt(pacientesRows[0].total || 0), 
-      total_psicologos: parseInt(psicologosRows[0].total || 0) 
+      total_pacientes: parseInt(pacientesRows[0]?.total || 0), 
+      total_psicologos: parseInt(psicologosRows[0]?.total || 0) 
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
