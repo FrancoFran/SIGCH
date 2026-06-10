@@ -1,4 +1,4 @@
-// frontend/js/app.js
+// frontend/js/app.js asdasdas
 const API = '/api';
 let currentUser = null;
 
