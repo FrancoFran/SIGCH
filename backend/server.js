@@ -14,13 +14,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 // Rutas de la API
-app.use('/api/usuarios',   require('./routes/usuarios'));
+app.use('/api/usuarios',    require('./routes/usuarios'));
 app.use('/api/psicologos', require('./routes/psicologos'));
 app.use('/api/pacientes',  require('./routes/pacientes'));
 app.use('/api/citas',      require('./routes/citas'));
 app.use('/api/historial',  require('./routes/historial'));
-app.use('/api/horarios',     require('./routes/horarios'));
-app.use('/api/sesiones',     require('./routes/sesiones'));
+app.use('/api/horarios',   require('./routes/horarios'));
+app.use('/api/sesiones',   require('./routes/sesiones'));
 app.use('/api/recordatorios', require('./routes/recordatorios'));
 app.use('/api/auditoria',    require('./routes/auditoria'));
 app.use('/api/reportes',     require('./routes/reportes'));
@@ -39,5 +39,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`\n✅ SIGCH corriendo en http://localhost:${PORT}`);
-  console.log('   Credenciales de prueba: admin@sigch.com / password\n');
+  console.log('   Credenciales de prueba: admin@sigch.com / 123\n');
 });
