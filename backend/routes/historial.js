@@ -1,3 +1,4 @@
+// backend/routes/historial.js
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
@@ -84,11 +85,11 @@ router.post('/', requireHistorialAccess, async (req, res) => {
   }
 
   try {
-    // CORRECCIÓN: Uso de marcadores posicionales PostgreSQL y cláusula RETURNING
+    // CORRECCIÓN: Se cambió el "1" por "true" al final de los VALUES
     const [rows] = await pool.query(`
       INSERT INTO historial_clinico
         (id_paciente, id_psicologo, fecha, diagnostico, tratamiento, observaciones, activo)
-      VALUES ($1, $2, $3, $4, $5, $6, 1) RETURNING id_historial
+      VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id_historial
     `, [
       id_paciente,
       id_psicologo,
@@ -119,6 +120,9 @@ router.put('/:id', requireHistorialAccess, async (req, res) => {
   } = req.body;
 
   try {
+    // CORRECCIÓN: Validamos que "activo" sea un booleano real nativo para PostgreSQL
+    const isActivo = activo === undefined ? true : (activo === true || activo === 1 || activo === 'true');
+
     await pool.query(`
       UPDATE historial_clinico
       SET 
@@ -135,9 +139,9 @@ router.put('/:id', requireHistorialAccess, async (req, res) => {
       id_psicologo,
       fecha,
       diagnostico,
-      treatment || null,
+      tratamiento || null,
       observaciones || null,
-      activo === undefined ? 1 : activo,
+      isActivo,
       req.params.id
     ]);
 
@@ -149,8 +153,9 @@ router.put('/:id', requireHistorialAccess, async (req, res) => {
 
 router.delete('/:id', requireHistorialAccess, async (req, res) => {
   try {
+    // CORRECCIÓN: Se cambió "activo = 0" por "activo = false"
     await pool.query(
-      'UPDATE historial_clinico SET activo = 0 WHERE id_historial = $1',
+      'UPDATE historial_clinico SET activo = false WHERE id_historial = $1',
       [req.params.id]
     );
 
