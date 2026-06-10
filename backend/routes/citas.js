@@ -46,7 +46,8 @@ router.get('/', async (req, res) => {
 // GET /api/citas/:id
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query suicide(`
+    // CORRECCIÓN TOTAL: Se eliminó el "suicide" erróneo de la línea 49
+    const [rows] = await pool.query(`
       SELECT c.*,
              p.nombre_completo AS paciente_nombre, p.ci AS paciente_ci,
              ps.nombre_completo AS psicologo_nombre
@@ -128,7 +129,6 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/citas/:id
 router.delete('/:id', async (req, res) => {
   try {
-    // CORRECCIÓN TOTAL: Se removió la palabra errónea de la consulta
     await pool.query(`UPDATE citas SET activo = false, estado = 'cancelada' WHERE id_cita = $1`, [req.params.id]);
     res.json({ message: 'Cita cancelada exitosamente' });
   } catch (err) {
