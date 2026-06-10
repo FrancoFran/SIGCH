@@ -1,3 +1,4 @@
+// backend/routes/pacientes.js
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
@@ -31,12 +32,11 @@ router.get('/', async (req, res) => {
         activo,
         fecha_registro
       FROM pacientes
-      WHERE activo = 1
+      WHERE activo = true
     `;
 
     const params = [];
 
-    // CORRECCIÓN: Estructuración dinámica de parámetros usando $1, $2 en vez de ?
     if (q.trim() !== '') {
       sql += ` AND (nombre_completo ILIKE $1 OR ci LIKE $2)`;
       params.push(`%${q}%`, `%${q}%`);
@@ -97,11 +97,11 @@ router.post('/', requireAdminOrRecepcion, async (req, res) => {
   }
 
   try {
-    // CORRECCIÓN: Reemplazo de ? por secuencia ordinal y captura de ID vía RETURNING
+    // CORRECCIÓN: Se cambió el "1" final por "true" para que PostgreSQL no proteste por tipos
     const [rows] = await pool.query(`
       INSERT INTO pacientes
         (nombre_completo, ci, fecha_nacimiento, telefono, email, direccion, activo)
-      VALUES ($1, $2, $3, $4, $5, $6, 1)
+      VALUES ($1, $2, $3, $4, $5, $6, true)
       RETURNING id_paciente
     `, [
       nombre_completo,
@@ -146,6 +146,9 @@ router.put('/:id', requireAdminOrRecepcion, async (req, res) => {
   }
 
   try {
+    // CORRECCIÓN: Forzamos la evaluación a booleano nativo true/false
+    const isActivo = activo === undefined ? true : (activo === true || activo === 1 || activo === 'true');
+
     const [result] = await pool.query(`
       UPDATE pacientes
       SET 
@@ -164,7 +167,7 @@ router.put('/:id', requireAdminOrRecepcion, async (req, res) => {
       telefono,
       email || null,
       direccion || null,
-      activo === undefined ? 1 : activo,
+      isActivo,
       req.params.id
     ]);
 
@@ -190,7 +193,7 @@ router.delete('/:id', requireAdminOrRecepcion, async (req, res) => {
     const idPaciente = Number(req.params.id);
 
     const [result] = await pool.query(
-      'UPDATE pacientes SET activo = 0 WHERE id_paciente = $1',
+      'UPDATE pacientes SET activo = false WHERE id_paciente = $1',
       [idPaciente]
     );
 
