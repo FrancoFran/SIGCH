@@ -273,3 +273,48 @@ router.post('/auth/login', async (req, res) => {
 });
 
 module.exports = router;
+// ─────────────────────────────────────────────
+// POST /api/usuarios/auth/login — autenticación real
+// Libre, no requiere permiso
+// ─────────────────────────────────────────────
+router.post('/auth/login', async (req, res) => {
+  const { email, contrasena } = req.body;
+
+  if (!email || !contrasena) {
+    return res.status(400).json({
+      error: 'Email y contraseña son obligatorios'
+    });
+  }
+
+  try {
+    // CORRECCIÓN: Se cambió "activo = 1" por "activo = true" para compatibilidad estricta con PostgreSQL/Supabase
+    const [rows] = await pool.query(
+      'SELECT * FROM usuarios WHERE email = $1 AND activo = true',
+      [email]
+    );
+
+    if (!rows.length) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+
+    const usuario = rows[0];
+
+    const valid = await bcrypt.compare(
+      contrasena,
+      usuario.contrasena_hash
+    );
+
+    if (!valid) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+
+    const { contrasena_hash, ...user } = usuario;
+
+    res.json({
+      message: 'Login exitoso',
+      user
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
