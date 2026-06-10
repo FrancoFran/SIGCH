@@ -36,15 +36,15 @@ router.get('/', async (req, res) => {
 
     const params = [];
 
+    // CORRECCIÓN: Estructuración dinámica de parámetros usando $1, $2 en vez de ?
     if (q.trim() !== '') {
-      sql += ` AND (nombre_completo LIKE ? OR ci LIKE ?)`;
+      sql += ` AND (nombre_completo ILIKE $1 OR ci LIKE $2)`;
       params.push(`%${q}%`, `%${q}%`);
     }
 
     sql += ` ORDER BY id_paciente DESC`;
 
     const [rows] = await pool.query(sql, params);
-
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -66,7 +66,7 @@ router.get('/:id', async (req, res) => {
         activo,
         fecha_registro
       FROM pacientes
-      WHERE id_paciente = ?
+      WHERE id_paciente = $1
     `, [req.params.id]);
 
     if (!rows.length) {
@@ -97,10 +97,12 @@ router.post('/', requireAdminOrRecepcion, async (req, res) => {
   }
 
   try {
-    const [result] = await pool.query(`
+    // CORRECCIÓN: Reemplazo de ? por secuencia ordinal y captura de ID vía RETURNING
+    const [rows] = await pool.query(`
       INSERT INTO pacientes
         (nombre_completo, ci, fecha_nacimiento, telefono, email, direccion, activo)
-      VALUES (?, ?, ?, ?, ?, ?, 1)
+      VALUES ($1, $2, $3, $4, $5, $6, 1)
+      RETURNING id_paciente
     `, [
       nombre_completo,
       ci,
@@ -111,11 +113,11 @@ router.post('/', requireAdminOrRecepcion, async (req, res) => {
     ]);
 
     res.status(201).json({
-      id_paciente: result.insertId,
+      id_paciente: rows[0].id_paciente,
       message: 'Paciente registrado correctamente.'
     });
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
+    if (err.code === '23505' || err.message.includes('unique constraint')) {
       return res.status(409).json({
         error: 'Ya existe un paciente con ese CI.'
       });
@@ -147,14 +149,14 @@ router.put('/:id', requireAdminOrRecepcion, async (req, res) => {
     const [result] = await pool.query(`
       UPDATE pacientes
       SET 
-        nombre_completo = ?,
-        ci = ?,
-        fecha_nacimiento = ?,
-        telefono = ?,
-        email = ?,
-        direccion = ?,
-        activo = ?
-      WHERE id_paciente = ?
+        nombre_completo = $1,
+        ci = $2,
+        fecha_nacimiento = $3,
+        telefono = $4,
+        email = $5,
+        direccion = $6,
+        activo = $7
+      WHERE id_paciente = $8
     `, [
       nombre_completo,
       ci,
@@ -166,13 +168,13 @@ router.put('/:id', requireAdminOrRecepcion, async (req, res) => {
       req.params.id
     ]);
 
-    if (result.affectedRows === 0) {
+    if (result.affectedRows === 0 || result.rowCount === 0) {
       return res.status(404).json({ error: 'Paciente no encontrado.' });
     }
 
     res.json({ message: 'Paciente actualizado correctamente.' });
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
+    if (err.code === '23505' || err.message.includes('unique constraint')) {
       return res.status(409).json({
         error: 'Ya existe un paciente con ese CI.'
       });
@@ -188,11 +190,11 @@ router.delete('/:id', requireAdminOrRecepcion, async (req, res) => {
     const idPaciente = Number(req.params.id);
 
     const [result] = await pool.query(
-      'UPDATE pacientes SET activo = 0 WHERE id_paciente = ?',
+      'UPDATE pacientes SET activo = 0 WHERE id_paciente = $1',
       [idPaciente]
     );
 
-    if (result.affectedRows === 0) {
+    if (result.affectedRows === 0 || result.rowCount === 0) {
       return res.status(404).json({
         error: 'No se encontró el paciente.'
       });
