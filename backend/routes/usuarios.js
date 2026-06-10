@@ -230,6 +230,10 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 // POST /api/usuarios/auth/login — autenticación real
 // Libre, no requiere permiso
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// POST /api/usuarios/auth/login
+// PostgreSQL
+// ─────────────────────────────────────────────
 router.post('/auth/login', async (req, res) => {
   const { email, contrasena } = req.body;
 
@@ -240,13 +244,20 @@ router.post('/auth/login', async (req, res) => {
   }
 
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM usuarios WHERE email = ? AND activo = 1',
+    const result = await pool.query(
+      `SELECT *
+       FROM usuarios
+       WHERE email = $1
+       AND activo = TRUE`,
       [email]
     );
 
-    if (!rows.length) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
+    const rows = result.rows;
+
+    if (rows.length === 0) {
+      return res.status(401).json({
+        error: 'Credenciales inválidas'
+      });
     }
 
     const usuario = rows[0];
@@ -257,7 +268,9 @@ router.post('/auth/login', async (req, res) => {
     );
 
     if (!valid) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
+      return res.status(401).json({
+        error: 'Credenciales inválidas'
+      });
     }
 
     const { contrasena_hash, ...user } = usuario;
@@ -266,8 +279,13 @@ router.post('/auth/login', async (req, res) => {
       message: 'Login exitoso',
       user
     });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error login:', err);
+
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
 
