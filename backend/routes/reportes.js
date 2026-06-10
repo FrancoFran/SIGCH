@@ -1,3 +1,4 @@
+// backend/routes/reportes.js
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
@@ -14,13 +15,14 @@ function requireAdmin(req, res, next) {
 
 router.get('/resumen', requireAdmin, async (req, res) => {
   try {
-    const [pacientes] = await pool.query('SELECT COUNT(*) AS total FROM pacientes WHERE activo = 1');
-    const [psicologos] = await pool.query('SELECT COUNT(*) AS total FROM psicologos WHERE activo = 1');
-    const [usuarios] = await pool.query('SELECT COUNT(*) AS total FROM usuarios WHERE activo = 1');
+    // CORRECCIÓN: Se cambió "activo = 1" por "activo = true" en cada contador para Postgres
+    const [pacientes] = await pool.query('SELECT COUNT(*) AS total FROM pacientes WHERE activo = true');
+    const [psicologos] = await pool.query('SELECT COUNT(*) AS total FROM psicologos WHERE activo = true');
+    const [usuarios] = await pool.query('SELECT COUNT(*) AS total FROM usuarios WHERE activo = true');
     const [citas] = await pool.query('SELECT COUNT(*) AS total FROM citas');
-    const [historiales] = await pool.query('SELECT COUNT(*) AS total FROM historial_clinico WHERE activo = 1');
-    const [sesiones] = await pool.query('SELECT COUNT(*) AS total FROM sesiones_clinicas WHERE activo = 1');
-    const [recordatorios] = await pool.query('SELECT COUNT(*) AS total FROM recordatorios WHERE activo = 1');
+    const [historiales] = await pool.query('SELECT COUNT(*) AS total FROM historial_clinico WHERE activo = true');
+    const [sesiones] = await pool.query('SELECT COUNT(*) AS total FROM sesiones_clinicas WHERE activo = true');
+    const [recordatorios] = await pool.query('SELECT COUNT(*) AS total FROM recordatorios WHERE activo = true');
 
     res.json([
       { indicador: 'Pacientes activos', total: parseInt(pacientes[0].total || 0) },
@@ -40,7 +42,6 @@ router.get('/citas', requireAdmin, async (req, res) => {
   const { desde, hasta } = req.query;
 
   try {
-    // CORRECCIÓN: Adaptación de validación de variables nulas parametrizadas de Postgres ($1, $2...)
     const [rows] = await pool.query(`
       SELECT
         c.id_cita,
