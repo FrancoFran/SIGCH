@@ -1,3 +1,4 @@
+// backend/routes/sesiones.js
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
@@ -79,11 +80,11 @@ router.post('/', requireClinico, async (req, res) => {
   }
 
   try {
-    // CORRECCIÓN: Cambiados marcadores y añadido RETURNING id_sesion
+    // CORRECCIÓN: Se cambió el último parámetro de los VALUES de "1" a "true"
     const [rows] = await pool.query(`
       INSERT INTO sesiones_clinicas
         (id_cita, id_paciente, id_psicologo, numero_sesion, fecha, resumen, tecnicas_aplicadas, tareas_asignadas, evolucion, activo)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
       RETURNING id_sesion
     `, [
       id_cita,
@@ -121,6 +122,9 @@ router.put('/:id', requireClinico, async (req, res) => {
   } = req.body;
 
   try {
+    // CORRECCIÓN: Convertimos "activo" a booleano puro para evitar conflictos en PostgreSQL
+    const isActivo = activo === undefined ? true : (activo === true || activo === 1 || activo === 'true');
+
     await pool.query(`
       UPDATE sesiones_clinicas
       SET 
@@ -145,7 +149,7 @@ router.put('/:id', requireClinico, async (req, res) => {
       tecnicas_aplicadas || null,
       tareas_asignadas || null,
       evolucion || null,
-      activo === undefined ? 1 : activo,
+      isActivo,
       req.params.id
     ]);
 
@@ -157,8 +161,9 @@ router.put('/:id', requireClinico, async (req, res) => {
 
 router.delete('/:id', requireClinico, async (req, res) => {
   try {
+    // CORRECCIÓN: Se cambió "activo = 0" por "activo = false"
     await pool.query(
-      'UPDATE sesiones_clinicas SET activo = 0 WHERE id_sesion = $1',
+      'UPDATE sesiones_clinicas SET activo = false WHERE id_sesion = $1',
       [req.params.id]
     );
 
