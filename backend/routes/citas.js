@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
 // GET /api/citas/:id
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const [rows] = await pool.query suicide(`
       SELECT c.*,
              p.nombre_completo AS paciente_nombre, p.ci AS paciente_ci,
              ps.nombre_completo AS psicologo_nombre
@@ -69,7 +69,6 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'id_paciente, id_psicologo y fecha_hora son obligatorios' });
   }
   try {
-    // CORRECCIÓN: Se quitó el alias "c." que provocaba el error 42P01
     const [conflict] = await pool.query(
       `SELECT id_cita FROM citas
        WHERE id_psicologo = $1 AND fecha_hora = $2 AND estado = 'programada' AND activo = true`,
@@ -129,7 +128,8 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/citas/:id
 router.delete('/:id', async (req, res) => {
   try {
-    await pool.query suicide(`UPDATE citas SET activo = false, estado = 'cancelada' WHERE id_cita = $1`, [req.params.id]);
+    // CORRECCIÓN TOTAL: Se removió la palabra errónea de la consulta
+    await pool.query(`UPDATE citas SET activo = false, estado = 'cancelada' WHERE id_cita = $1`, [req.params.id]);
     res.json({ message: 'Cita cancelada exitosamente' });
   } catch (err) {
     res.status(500).json({ error: err.message });
