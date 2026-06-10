@@ -1,3 +1,4 @@
+// backend/routes/psicologos.js
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
@@ -179,4 +180,4 @@ router.delete('/:id', requireAdmin, async (req, res) => {
   }
 });
 
---
+module.exports = router;
