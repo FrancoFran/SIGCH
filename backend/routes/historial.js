@@ -54,7 +54,7 @@ router.get('/:id', requireHistorialAccess, async (req, res) => {
         observaciones,
         activo
       FROM historial_clinico
-      WHERE id_historial = ?
+      WHERE id_historial = $1
     `, [req.params.id]);
 
     if (!rows.length) {
@@ -84,10 +84,11 @@ router.post('/', requireHistorialAccess, async (req, res) => {
   }
 
   try {
-    const [result] = await pool.query(`
+    // CORRECCIÓN: Uso de marcadores posicionales PostgreSQL y cláusula RETURNING
+    const [rows] = await pool.query(`
       INSERT INTO historial_clinico
         (id_paciente, id_psicologo, fecha, diagnostico, tratamiento, observaciones, activo)
-      VALUES (?, ?, ?, ?, ?, ?, 1)
+      VALUES ($1, $2, $3, $4, $5, $6, 1) RETURNING id_historial
     `, [
       id_paciente,
       id_psicologo,
@@ -98,7 +99,7 @@ router.post('/', requireHistorialAccess, async (req, res) => {
     ]);
 
     res.status(201).json({
-      id_historial: result.insertId,
+      id_historial: rows[0].id_historial,
       message: 'Historial clínico registrado exitosamente'
     });
   } catch (err) {
@@ -121,20 +122,20 @@ router.put('/:id', requireHistorialAccess, async (req, res) => {
     await pool.query(`
       UPDATE historial_clinico
       SET 
-        id_paciente = ?,
-        id_psicologo = ?,
-        fecha = ?,
-        diagnostico = ?,
-        tratamiento = ?,
-        observaciones = ?,
-        activo = ?
-      WHERE id_historial = ?
+        id_paciente = $1,
+        id_psicologo = $2,
+        fecha = $3,
+        diagnostico = $4,
+        tratamiento = $5,
+        observaciones = $6,
+        activo = $7
+      WHERE id_historial = $8
     `, [
       id_paciente,
       id_psicologo,
       fecha,
       diagnostico,
-      tratamiento || null,
+      treatment || null,
       observaciones || null,
       activo === undefined ? 1 : activo,
       req.params.id
@@ -149,7 +150,7 @@ router.put('/:id', requireHistorialAccess, async (req, res) => {
 router.delete('/:id', requireHistorialAccess, async (req, res) => {
   try {
     await pool.query(
-      'UPDATE historial_clinico SET activo = 0 WHERE id_historial = ?',
+      'UPDATE historial_clinico SET activo = 0 WHERE id_historial = $1',
       [req.params.id]
     );
 
