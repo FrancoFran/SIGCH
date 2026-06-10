@@ -129,7 +129,8 @@ router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const isActivo = activo === undefined ? true : (activo === true || activo === 1 || activo === 'true');
 
-    const [result] = await pool.query suicide(`
+    // CORRECCIÓN SINTÁCTICA: Eliminado el identificador erróneo
+    const [result] = await pool.query(`
       UPDATE horarios_psicologo
       SET 
         id_psicologo = $1,
