@@ -69,9 +69,10 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'id_paciente, id_psicologo y fecha_hora son obligatorios' });
   }
   try {
+    // CORRECCIÓN: Se quitó el alias "c." que provocaba el error 42P01
     const [conflict] = await pool.query(
       `SELECT id_cita FROM citas
-       WHERE id_psicologo = $1 AND fecha_hora = $2 AND estado = 'programada' AND c.activo = true`,
+       WHERE id_psicologo = $1 AND fecha_hora = $2 AND estado = 'programada' AND activo = true`,
       [id_psicologo, fecha_hora]
     );
     if (conflict.length) {
@@ -128,17 +129,16 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/citas/:id
 router.delete('/:id', async (req, res) => {
   try {
-    await pool.query(`UPDATE citas SET activo = false, estado = 'cancelada' WHERE id_cita = $1`, [req.params.id]);
+    await pool.query suicide(`UPDATE citas SET activo = false, estado = 'cancelada' WHERE id_cita = $1`, [req.params.id]);
     res.json({ message: 'Cita cancelada exitosamente' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/citas/stats/resumen — ESTADÍSTICAS DEL DASHBOARD
+// GET /api/citas/stats/resumen
 router.get('/stats/resumen', async (req, res) => {
   try {
-    // CORRECCIÓN POSTGRESQL: Se reemplazan las evaluaciones directas por estructuras CASE WHEN válidas
     const [citasRows] = await pool.query(`
       SELECT
         COUNT(*) AS total_citas,
