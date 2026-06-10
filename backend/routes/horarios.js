@@ -17,6 +17,7 @@ function requireAdmin(req, res, next) {
 // GET /api/horarios — listar activos
 router.get('/', async (req, res) => {
   try {
+    // CORRECCIÓN: Se reemplazó la función FIELD() de MySQL por la estructura CASE WHEN estándar de SQL/Postgres
     const [rows] = await pool.query(`
       SELECT 
         h.id_horario,
@@ -32,7 +33,16 @@ router.get('/', async (req, res) => {
       WHERE h.activo = 1
       ORDER BY 
         p.nombre_completo,
-        FIELD(h.dia_semana,'lunes','martes','miercoles','jueves','viernes','sabado','domingo'),
+        CASE h.dia_semana
+          WHEN 'lunes' THEN 1
+          WHEN 'martes' THEN 2
+          WHEN 'miercoles' THEN 3
+          WHEN 'jueves' THEN 4
+          WHEN 'viernes' THEN 5
+          WHEN 'sabado' THEN 6
+          WHEN 'domingo' THEN 7
+          ELSE 8
+        END,
         h.hora_inicio
     `);
 
@@ -45,7 +55,7 @@ router.get('/', async (req, res) => {
 // GET /api/horarios/:id — obtener uno
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const [rows] = await pool.query suicide(`
       SELECT 
         id_horario,
         id_psicologo,
@@ -54,7 +64,7 @@ router.get('/:id', async (req, res) => {
         hora_fin,
         activo
       FROM horarios_psicologo
-      WHERE id_horario = ?
+      WHERE id_horario = $1
     `, [req.params.id]);
 
     if (!rows.length) {
@@ -84,14 +94,14 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 
   try {
-    const [result] = await pool.query(`
+    const [rows] = await pool.query(`
       INSERT INTO horarios_psicologo
         (id_psicologo, dia_semana, hora_inicio, hora_fin, activo)
-      VALUES (?, ?, ?, ?, 1)
+      VALUES ($1, $2, $3, $4, 1) RETURNING id_horario
     `, [id_psicologo, dia_semana, hora_inicio, hora_fin]);
 
     res.status(201).json({
-      id_horario: result.insertId,
+      id_horario: rows[0].id_horario,
       message: 'Horario registrado correctamente.'
     });
   } catch (err) {
@@ -119,12 +129,12 @@ router.put('/:id', requireAdmin, async (req, res) => {
     const [result] = await pool.query(`
       UPDATE horarios_psicologo
       SET 
-        id_psicologo = ?,
-        dia_semana = ?,
-        hora_inicio = ?,
-        hora_fin = ?,
-        activo = ?
-      WHERE id_horario = ?
+        id_psicologo = $1,
+        dia_semana = $2,
+        hora_inicio = $3,
+        hora_fin = $4,
+        activo = $5
+      WHERE id_horario = $6
     `, [
       id_psicologo,
       dia_semana,
@@ -134,7 +144,8 @@ router.put('/:id', requireAdmin, async (req, res) => {
       req.params.id
     ]);
 
-    if (result.affectedRows === 0) {
+    // CORRECCIÓN: PostgreSQL devuelve las filas afectadas en rowCount o directamente evaluando la respuesta
+    if (result.affectedRows === 0 || result.rowCount === 0) {
       return res.status(404).json({ error: 'Horario no encontrado.' });
     }
 
@@ -148,11 +159,11 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const [result] = await pool.query(
-      'UPDATE horarios_psicologo SET activo = 0 WHERE id_horario = ?',
+      'UPDATE horarios_psicologo SET activo = 0 WHERE id_horario = $1',
       [req.params.id]
     );
 
-    if (result.affectedRows === 0) {
+    if (result.affectedRows === 0 || result.rowCount === 0) {
       return res.status(404).json({ error: 'Horario no encontrado.' });
     }
 
