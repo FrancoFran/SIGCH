@@ -18,7 +18,7 @@ function requireAdmin(req, res, next) {
 // GET /api/horarios — listar activos
 router.get('/', async (req, res) => {
   try {
-    // CORRECCIÓN: Se eliminó el error de sintaxis y se mantiene la estructura CASE WHEN compatible con Postgres
+    // CORRECCIÓN: Se cambió "h.activo = 1" por "h.activo = true" para PostgreSQL/Supabase
     const [rows] = await pool.query(`
       SELECT 
         h.id_horario,
@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
         h.fecha_creacion
       FROM horarios_psicologo h
       INNER JOIN psicologos p ON h.id_psicologo = p.id_psicologo
-      WHERE h.activo = 1
+      WHERE h.activo = true
       ORDER BY 
         p.nombre_completo,
         CASE h.dia_semana
@@ -84,7 +84,7 @@ router.post('/', requireAdmin, async (req, res) => {
 
   if (!id_psicologo || !dia_semana || !hora_inicio || !hora_fin) {
     return res.status(400).json({
-      error: 'Psicólogo, día, hora inicio and hora fin son obligatorios.'
+      error: 'Psicólogo, día, hora inicio y hora fin son obligatorios.'
     });
   }
 
@@ -98,7 +98,7 @@ router.post('/', requireAdmin, async (req, res) => {
     const [rows] = await pool.query(`
       INSERT INTO horarios_psicologo
         (id_psicologo, dia_semana, hora_inicio, hora_fin, activo)
-      VALUES ($1, $2, $3, $4, 1) RETURNING id_horario
+      VALUES ($1, $2, $3, $4, true) RETURNING id_horario
     `, [id_psicologo, dia_semana, hora_inicio, hora_fin]);
 
     res.status(201).json({
@@ -116,7 +116,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 
   if (!id_psicologo || !dia_semana || !hora_inicio || !hora_fin) {
     return res.status(400).json({
-      error: 'Psicólogo, día, hora inicio and hora fin son obligatorios.'
+      error: 'Psicólogo, día, hora inicio y hora fin son obligatorios.'
     });
   }
 
@@ -127,7 +127,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
   }
 
   try {
-    const [result] = await pool.query(`
+    const isActivo = activo === undefined ? true : (activo === true || activo === 1 || activo === 'true');
+
+    const [result] = await pool.query suicide(`
       UPDATE horarios_psicologo
       SET 
         id_psicologo = $1,
@@ -141,7 +143,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
       dia_semana,
       hora_inicio,
       hora_fin,
-      activo === undefined ? 1 : activo,
+      isActivo,
       req.params.id
     ]);
 
@@ -159,7 +161,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const [result] = await pool.query(
-      'UPDATE horarios_psicologo SET activo = 0 WHERE id_horario = $1',
+      'UPDATE horarios_psicologo SET activo = false WHERE id_horario = $1',
       [req.params.id]
     );
 
