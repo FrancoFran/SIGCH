@@ -40,10 +40,11 @@ router.post('/', async (req, res) => {
   const { modulo, accion, descripcion } = req.body;
 
   try {
+    // CORRECCIÓN: Marcadores cambiados a $1, $2... para compatibilidad con PostgreSQL
     await pool.query(`
       INSERT INTO auditoria
         (id_usuario, usuario_nombre, rol, modulo, accion, descripcion, ip)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [
       req.headers['x-user-id'] || null,
       req.headers['x-user-name'] || null,
