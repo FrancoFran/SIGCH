@@ -14,22 +14,22 @@ function requireAdmin(req, res, next) {
 
 router.get('/resumen', requireAdmin, async (req, res) => {
   try {
-    const [[pacientes]] = await pool.query('SELECT COUNT(*) AS total FROM pacientes WHERE activo = 1');
-    const [[psicologos]] = await pool.query('SELECT COUNT(*) AS total FROM psicologos WHERE activo = 1');
-    const [[usuarios]] = await pool.query('SELECT COUNT(*) AS total FROM usuarios WHERE activo = 1');
-    const [[citas]] = await pool.query('SELECT COUNT(*) AS total FROM citas');
-    const [[historiales]] = await pool.query('SELECT COUNT(*) AS total FROM historial_clinico WHERE activo = 1');
-    const [[sesiones]] = await pool.query('SELECT COUNT(*) AS total FROM sesiones_clinicas WHERE activo = 1');
-    const [[recordatorios]] = await pool.query('SELECT COUNT(*) AS total FROM recordatorios WHERE activo = 1');
+    const [pacientes] = await pool.query('SELECT COUNT(*) AS total FROM pacientes WHERE activo = 1');
+    const [psicologos] = await pool.query('SELECT COUNT(*) AS total FROM psicologos WHERE activo = 1');
+    const [usuarios] = await pool.query('SELECT COUNT(*) AS total FROM usuarios WHERE activo = 1');
+    const [citas] = await pool.query('SELECT COUNT(*) AS total FROM citas');
+    const [historiales] = await pool.query('SELECT COUNT(*) AS total FROM historial_clinico WHERE activo = 1');
+    const [sesiones] = await pool.query('SELECT COUNT(*) AS total FROM sesiones_clinicas WHERE activo = 1');
+    const [recordatorios] = await pool.query('SELECT COUNT(*) AS total FROM recordatorios WHERE activo = 1');
 
     res.json([
-      { indicador: 'Pacientes activos', total: pacientes.total },
-      { indicador: 'Psicólogos activos', total: psicologos.total },
-      { indicador: 'Usuarios activos', total: usuarios.total },
-      { indicador: 'Citas registradas', total: citas.total },
-      { indicador: 'Historiales clínicos activos', total: historiales.total },
-      { indicador: 'Sesiones clínicas activas', total: sesiones.total },
-      { indicador: 'Recordatorios activos', total: recordatorios.total }
+      { indicador: 'Pacientes activos', total: parseInt(pacientes[0].total || 0) },
+      { indicador: 'Psicólogos activos', total: parseInt(psicologos[0].total || 0) },
+      { indicador: 'Usuarios activos', total: parseInt(usuarios[0].total || 0) },
+      { indicador: 'Citas registradas', total: parseInt(citas[0].total || 0) },
+      { indicador: 'Historiales clínicos activos', total: parseInt(historiales[0].total || 0) },
+      { indicador: 'Sesiones clínicas activas', total: parseInt(sesiones[0].total || 0) },
+      { indicador: 'Recordatorios activos', total: parseInt(recordatorios[0].total || 0) }
     ]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -40,6 +40,7 @@ router.get('/citas', requireAdmin, async (req, res) => {
   const { desde, hasta } = req.query;
 
   try {
+    // CORRECCIÓN: Adaptación de validación de variables nulas parametrizadas de Postgres ($1, $2...)
     const [rows] = await pool.query(`
       SELECT
         c.id_cita,
@@ -52,8 +53,8 @@ router.get('/citas', requireAdmin, async (req, res) => {
       FROM citas c
       INNER JOIN pacientes pa ON c.id_paciente = pa.id_paciente
       INNER JOIN psicologos ps ON c.id_psicologo = ps.id_psicologo
-      WHERE (? IS NULL OR DATE(c.fecha_hora) >= ?)
-        AND (? IS NULL OR DATE(c.fecha_hora) <= ?)
+      WHERE ($1::text IS NULL OR DATE(c.fecha_hora) >= $2::date)
+        AND ($3::text IS NULL OR DATE(c.fecha_hora) <= $4::date)
       ORDER BY c.fecha_hora DESC
     `, [
       desde || null,
