@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
         registro_profesional,
         activo
       FROM psicologos
-      WHERE activo = 1
+      WHERE activo = true
       ORDER BY id_psicologo
     `);
 
@@ -78,10 +78,11 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 
   try {
+    // CORRECCIÓN: Se cambió "1" por "true" al insertar
     const [rows] = await pool.query(`
       INSERT INTO psicologos
         (id_usuario, nombre_completo, especialidad, registro_profesional, activo)
-      VALUES ($1, $2, $3, $4, 1)
+      VALUES ($1, $2, $3, $4, true)
       RETURNING id_psicologo
     `, [
       id_usuario,
@@ -122,6 +123,8 @@ router.put('/:id', requireAdmin, async (req, res) => {
   }
 
   try {
+    const isActivo = activo === undefined ? true : (activo === true || activo === 1 || activo === 'true');
+
     const [result] = await pool.query(`
       UPDATE psicologos
       SET 
@@ -136,7 +139,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
       nombre_completo,
       especialidad,
       registro_profesional,
-      activo === undefined ? 1 : activo,
+      isActivo,
       req.params.id
     ]);
 
@@ -162,7 +165,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     const idPsicologo = Number(req.params.id);
 
     const [result] = await pool.query(
-      'UPDATE psicologos SET activo = 0 WHERE id_psicologo = $1',
+      'UPDATE psicologos SET activo = false WHERE id_psicologo = $1',
       [idPsicologo]
     );
 
