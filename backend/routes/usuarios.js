@@ -35,8 +35,8 @@ router.get('/', requireAdmin, async (req, res) => {
           email, 
           rol, 
           activo, 
-          fecha_creacion 
-       FROM usuarios 
+          fecha_creacion  
+       FROM usuarios  
        ORDER BY id_usuario`
     );
 
@@ -52,6 +52,7 @@ router.get('/', requireAdmin, async (req, res) => {
 // ─────────────────────────────────────────────
 router.get('/:id', requireAdmin, async (req, res) => {
   try {
+    // CORRECCIÓN: Se cambió "?" por "$1" para PostgreSQL
     const [rows] = await pool.query(
       `SELECT  
           id_usuario, 
@@ -59,9 +60,9 @@ router.get('/:id', requireAdmin, async (req, res) => {
           email, 
           rol, 
           activo, 
-          fecha_creacion 
-       FROM usuarios 
-       WHERE id_usuario = ?`,
+          fecha_creacion  
+       FROM usuarios  
+       WHERE id_usuario = $1`,
       [req.params.id]
     );
 
@@ -104,19 +105,20 @@ router.post('/', requireAdmin, async (req, res) => {
   try {
     const contrasena_hash = await bcrypt.hash(contrasena, 10);
 
-    const [result] = await pool.query(
+    // CORRECCIÓN: Marcadores posicionales, estado booleano nativo true y cláusula RETURNING para Postgres
+    const [rows] = await pool.query(
       `INSERT INTO usuarios  
         (nombre_completo, email, contrasena_hash, rol, activo)  
-       VALUES (?, ?, ?, ?, 1)`,
+       VALUES ($1, $2, $3, $4, true) RETURNING id_usuario`,
       [nombre_completo, email, contrasena_hash, rol]
     );
 
     res.status(201).json({
-      id_usuario: result.insertId,
+      id_usuario: rows[0].id_usuario,
       message: 'Usuario creado exitosamente'
     });
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
+    if (err.code === '23505' || err.message.includes('unique constraint')) {
       return res.status(409).json({ error: 'El email ya está registrado' });
     }
 
@@ -142,25 +144,32 @@ router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const fields = [];
     const values = [];
+    let paramIndex = 1;
 
+    // CORRECCIÓN: Construcción dinámica de campos usando $1, $2... en lugar de ?
     if (nombre_completo !== undefined) {
-      fields.push('nombre_completo = ?');
+      fields.push(`nombre_completo = $${paramIndex}`);
       values.push(nombre_completo);
+      paramIndex++;
     }
 
     if (email !== undefined) {
-      fields.push('email = ?');
+      fields.push(`email = $${paramIndex}`);
       values.push(email);
+      paramIndex++;
     }
 
     if (rol !== undefined) {
-      fields.push('rol = ?');
+      fields.push(`rol = $${paramIndex}`);
       values.push(rol);
+      paramIndex++;
     }
 
     if (activo !== undefined) {
-      fields.push('activo = ?');
-      values.push(activo);
+      fields.push(`activo = $${paramIndex}`);
+      // Aseguramos que se guarde como booleano puro
+      values.push(activo === true || activo === 1 || activo === 'true');
+      paramIndex++;
     }
 
     if (contrasena) {
@@ -171,8 +180,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
       }
 
       const hash = await bcrypt.hash(contrasena, 10);
-      fields.push('contrasena_hash = ?');
+      fields.push(`contrasena_hash = $${paramIndex}`);
       values.push(hash);
+      paramIndex++;
     }
 
     if (!fields.length) {
@@ -184,13 +194,13 @@ router.put('/:id', requireAdmin, async (req, res) => {
     values.push(req.params.id);
 
     await pool.query(
-      `UPDATE usuarios SET ${fields.join(', ')} WHERE id_usuario = ?`,
+      `UPDATE usuarios SET ${fields.join(', ')} WHERE id_usuario = $${paramIndex}`,
       values
     );
 
     res.json({ message: 'Usuario actualizado exitosamente' });
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
+    if (err.code === '23505' || err.message.includes('unique constraint')) {
       return res.status(409).json({ error: 'El email ya está registrado' });
     }
 
@@ -201,8 +211,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
 // ─────────────────────────────────────────────
 // DELETE /api/usuarios/:id — baja lógica
 // Solo administrador
-// No permite desactivar el usuario actual
-// No permite desactivar admin principal id 1
 // ─────────────────────────────────────────────
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
@@ -215,8 +223,9 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       });
     }
 
+    // CORRECCIÓN: Se cambiaron los parámetros y formatos booleanos para PostgreSQL
     await pool.query(
-      'UPDATE usuarios SET activo = 0 WHERE id_usuario = ?',
+      'UPDATE usuarios SET activo = false WHERE id_usuario = $1',
       [idAEliminar]
     );
 
@@ -240,9 +249,10 @@ router.post('/auth/login', async (req, res) => {
   }
 
   try {
-    // CORRECCIÓN: Se cambió "?" por "$1" para compatibilidad con PostgreSQL/Supabase
+    // CORRECCIÓN ABSOLUTA PARA POSTGRESQL: 
+    // Usamos 'AND activo' para evaluar directamente el campo booleano sin operadores enteros (= 1)
     const [rows] = await pool.query(
-      'SELECT * FROM usuarios WHERE email = $1 AND activo = 1',
+      'SELECT * FROM usuarios WHERE email = $1 AND activo',
       [email]
     );
 
@@ -273,48 +283,3 @@ router.post('/auth/login', async (req, res) => {
 });
 
 module.exports = router;
-// ─────────────────────────────────────────────
-// POST /api/usuarios/auth/login — autenticación real
-// Libre, no requiere permiso
-// ─────────────────────────────────────────────
-router.post('/auth/login', async (req, res) => {
-  const { email, contrasena } = req.body;
-
-  if (!email || !contrasena) {
-    return res.status(400).json({
-      error: 'Email y contraseña son obligatorios'
-    });
-  }
-
-  try {
-    // CORRECCIÓN: Se cambió "activo = 1" por "activo = true" para compatibilidad estricta con PostgreSQL/Supabase
-    const [rows] = await pool.query(
-      'SELECT * FROM usuarios WHERE email = $1 AND activo = true',
-      [email]
-    );
-
-    if (!rows.length) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
-    }
-
-    const usuario = rows[0];
-
-    const valid = await bcrypt.compare(
-      contrasena,
-      usuario.contrasena_hash
-    );
-
-    if (!valid) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
-    }
-
-    const { contrasena_hash, ...user } = usuario;
-
-    res.json({
-      message: 'Login exitoso',
-      user
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
