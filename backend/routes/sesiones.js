@@ -45,7 +45,7 @@ router.get('/', requireClinico, async (req, res) => {
 router.get('/:id', requireClinico, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM sesiones_clinicas WHERE id_sesion = ?',
+      'SELECT * FROM sesiones_clinicas WHERE id_sesion = $1',
       [req.params.id]
     );
 
@@ -79,10 +79,12 @@ router.post('/', requireClinico, async (req, res) => {
   }
 
   try {
-    const [result] = await pool.query(`
+    // CORRECCIÓN: Cambiados marcadores y añadido RETURNING id_sesion
+    const [rows] = await pool.query(`
       INSERT INTO sesiones_clinicas
         (id_cita, id_paciente, id_psicologo, numero_sesion, fecha, resumen, tecnicas_aplicadas, tareas_asignadas, evolucion, activo)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)
+      RETURNING id_sesion
     `, [
       id_cita,
       id_paciente,
@@ -96,7 +98,7 @@ router.post('/', requireClinico, async (req, res) => {
     ]);
 
     res.status(201).json({
-      id_sesion: result.insertId,
+      id_sesion: rows[0].id_sesion,
       message: 'Sesión clínica registrada correctamente.'
     });
   } catch (err) {
@@ -122,17 +124,17 @@ router.put('/:id', requireClinico, async (req, res) => {
     await pool.query(`
       UPDATE sesiones_clinicas
       SET 
-        id_cita = ?,
-        id_paciente = ?,
-        id_psicologo = ?,
-        numero_sesion = ?,
-        fecha = ?,
-        resumen = ?,
-        tecnicas_aplicadas = ?,
-        tareas_asignadas = ?,
-        evolucion = ?,
-        activo = ?
-      WHERE id_sesion = ?
+        id_cita = $1,
+        id_paciente = $2,
+        id_psicologo = $3,
+        numero_sesion = $4,
+        fecha = $5,
+        resumen = $6,
+        tecnicas_aplicadas = $7,
+        tareas_asignadas = $8,
+        evolucion = $9,
+        activo = $10
+      WHERE id_sesion = $11
     `, [
       id_cita,
       id_paciente,
@@ -156,7 +158,7 @@ router.put('/:id', requireClinico, async (req, res) => {
 router.delete('/:id', requireClinico, async (req, res) => {
   try {
     await pool.query(
-      'UPDATE sesiones_clinicas SET activo = 0 WHERE id_sesion = ?',
+      'UPDATE sesiones_clinicas SET activo = 0 WHERE id_sesion = $1',
       [req.params.id]
     );
 
