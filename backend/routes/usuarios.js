@@ -29,7 +29,7 @@ function requireAdmin(req, res, next) {
 router.get('/', requireAdmin, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT 
+      `SELECT  
           id_usuario, 
           nombre_completo, 
           email, 
@@ -53,7 +53,7 @@ router.get('/', requireAdmin, async (req, res) => {
 router.get('/:id', requireAdmin, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT 
+      `SELECT  
           id_usuario, 
           nombre_completo, 
           email, 
@@ -96,17 +96,17 @@ router.post('/', requireAdmin, async (req, res) => {
     });
   }
 
-if (contrasena.length < 3) {
-  return res.status(400).json({
-    error: 'La contraseña debe tener al menos 3 caracteres'
-  });
-}
+  if (contrasena.length < 3) {
+    return res.status(400).json({
+      error: 'La contraseña debe tener al menos 3 caracteres'
+    });
+  }
   try {
     const contrasena_hash = await bcrypt.hash(contrasena, 10);
 
     const [result] = await pool.query(
-      `INSERT INTO usuarios 
-        (nombre_completo, email, contrasena_hash, rol, activo) 
+      `INSERT INTO usuarios  
+        (nombre_completo, email, contrasena_hash, rol, activo)  
        VALUES (?, ?, ?, ?, 1)`,
       [nombre_completo, email, contrasena_hash, rol]
     );
@@ -164,11 +164,11 @@ router.put('/:id', requireAdmin, async (req, res) => {
     }
 
     if (contrasena) {
-if (contrasena.length < 3) {
-  return res.status(400).json({
-    error: 'La contraseña debe tener al menos 3 caracteres'
-  });
-}
+      if (contrasena.length < 3) {
+        return res.status(400).json({
+          error: 'La contraseña debe tener al menos 3 caracteres'
+        });
+      }
 
       const hash = await bcrypt.hash(contrasena, 10);
       fields.push('contrasena_hash = ?');
@@ -240,8 +240,9 @@ router.post('/auth/login', async (req, res) => {
   }
 
   try {
+    // CORRECCIÓN: Se cambió "?" por "$1" para compatibilidad con PostgreSQL/Supabase
     const [rows] = await pool.query(
-      'SELECT * FROM usuarios WHERE email = ? AND activo = 1',
+      'SELECT * FROM usuarios WHERE email = $1 AND activo = 1',
       [email]
     );
 
@@ -270,6 +271,5 @@ router.post('/auth/login', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 module.exports = router;
