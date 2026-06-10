@@ -1,15 +1,18 @@
 // backend/config/db.js
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST     || 'localhost',
-  user:     process.env.DB_USER     || 'root',
-  password: process.env.DB_PASSWORD || '1234',
-  database: process.env.DB_NAME     || 'sigch',
-  port:     Number(process.env.DB_PORT) || 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+const pool = new Pool({
+  host:     process.env.DB_HOST,
+  user:     process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port:     Number(process.env.DB_PORT) || 6543, // Usamos el puerto del pooler de Supabase
+  ssl: {
+    rejectUnauthorized: false // Requerido para conexiones seguras en la nube (Supabase/Vercel)
+  }
 });
 
-module.exports = pool;
+// Mantener compatibilidad con la sintaxis .query que usabas en mysql2
+module.exports = {
+  query: (text, params) => pool.query(text, params).then(res => [res.rows, res])
+};
