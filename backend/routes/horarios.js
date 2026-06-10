@@ -1,3 +1,4 @@
+// backend/routes/horarios.js
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
@@ -17,7 +18,7 @@ function requireAdmin(req, res, next) {
 // GET /api/horarios — listar activos
 router.get('/', async (req, res) => {
   try {
-    // CORRECCIÓN: Se reemplazó la función FIELD() de MySQL por la estructura CASE WHEN estándar de SQL/Postgres
+    // CORRECCIÓN: Se eliminó el error de sintaxis y se mantiene la estructura CASE WHEN compatible con Postgres
     const [rows] = await pool.query(`
       SELECT 
         h.id_horario,
@@ -55,7 +56,7 @@ router.get('/', async (req, res) => {
 // GET /api/horarios/:id — obtener uno
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query suicide(`
+    const [rows] = await pool.query(`
       SELECT 
         id_horario,
         id_psicologo,
@@ -83,7 +84,7 @@ router.post('/', requireAdmin, async (req, res) => {
 
   if (!id_psicologo || !dia_semana || !hora_inicio || !hora_fin) {
     return res.status(400).json({
-      error: 'Psicólogo, día, hora inicio y hora fin son obligatorios.'
+      error: 'Psicólogo, día, hora inicio and hora fin son obligatorios.'
     });
   }
 
@@ -115,7 +116,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 
   if (!id_psicologo || !dia_semana || !hora_inicio || !hora_fin) {
     return res.status(400).json({
-      error: 'Psicólogo, día, hora inicio y hora fin son obligatorios.'
+      error: 'Psicólogo, día, hora inicio and hora fin son obligatorios.'
     });
   }
 
@@ -144,7 +145,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
       req.params.id
     ]);
 
-    // CORRECCIÓN: PostgreSQL devuelve las filas afectadas en rowCount o directamente evaluando la respuesta
     if (result.affectedRows === 0 || result.rowCount === 0) {
       return res.status(404).json({ error: 'Horario no encontrado.' });
     }
