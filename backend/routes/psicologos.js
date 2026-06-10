@@ -48,7 +48,7 @@ router.get('/:id', async (req, res) => {
         registro_profesional,
         activo
       FROM psicologos
-      WHERE id_psicologo = ?
+      WHERE id_psicologo = $1
     `, [req.params.id]);
 
     if (!rows.length) {
@@ -77,10 +77,11 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 
   try {
-    const [result] = await pool.query(`
+    const [rows] = await pool.query(`
       INSERT INTO psicologos
         (id_usuario, nombre_completo, especialidad, registro_profesional, activo)
-      VALUES (?, ?, ?, ?, 1)
+      VALUES ($1, $2, $3, $4, 1)
+      RETURNING id_psicologo
     `, [
       id_usuario,
       nombre_completo,
@@ -89,11 +90,11 @@ router.post('/', requireAdmin, async (req, res) => {
     ]);
 
     res.status(201).json({
-      id_psicologo: result.insertId,
+      id_psicologo: rows[0].id_psicologo,
       message: 'Psicólogo registrado correctamente.'
     });
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
+    if (err.code === '23505' || err.message.includes('unique constraint')) {
       return res.status(409).json({
         error: 'Ese usuario o registro profesional ya está asignado.'
       });
@@ -123,12 +124,12 @@ router.put('/:id', requireAdmin, async (req, res) => {
     const [result] = await pool.query(`
       UPDATE psicologos
       SET 
-        id_usuario = ?,
-        nombre_completo = ?,
-        especialidad = ?,
-        registro_profesional = ?,
-        activo = ?
-      WHERE id_psicologo = ?
+        id_usuario = $1,
+        nombre_completo = $2,
+        especialidad = $3,
+        registro_profesional = $4,
+        activo = $5
+      WHERE id_psicologo = $6
     `, [
       id_usuario,
       nombre_completo,
@@ -138,13 +139,13 @@ router.put('/:id', requireAdmin, async (req, res) => {
       req.params.id
     ]);
 
-    if (result.affectedRows === 0) {
+    if (result.affectedRows === 0 || result.rowCount === 0) {
       return res.status(404).json({ error: 'Psicólogo no encontrado.' });
     }
 
     res.json({ message: 'Psicólogo actualizado correctamente.' });
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
+    if (err.code === '23505' || err.message.includes('unique constraint')) {
       return res.status(409).json({
         error: 'Ese usuario o registro profesional ya está asignado.'
       });
@@ -160,11 +161,11 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     const idPsicologo = Number(req.params.id);
 
     const [result] = await pool.query(
-      'UPDATE psicologos SET activo = 0 WHERE id_psicologo = ?',
+      'UPDATE psicologos SET activo = 0 WHERE id_psicologo = $1',
       [idPsicologo]
     );
 
-    if (result.affectedRows === 0) {
+    if (result.affectedRows === 0 || result.rowCount === 0) {
       return res.status(404).json({
         error: 'No se encontró el psicólogo.'
       });
@@ -178,4 +179,4 @@ router.delete('/:id', requireAdmin, async (req, res) => {
   }
 });
 
-module.exports = router;
+--
