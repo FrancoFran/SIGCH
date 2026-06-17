@@ -11,9 +11,9 @@ function authMiddleware(req, res, next) {
       if (parts.length === 2 && parts[0] === 'Bearer') token = parts[1];
     }
 
-    if (!token && req.cookies && req.cookies.refreshToken) {
-      // preferimos accessToken en header; si usas cookie con accessToken, ajusta nombre
-      token = req.cookies.accessToken || null;
+    // Soporte para cookie (si usas cookies para tokens)
+    if (!token && req.cookies) {
+      token = req.cookies.accessToken || req.cookies.refreshToken || null;
     }
 
     if (!token) return res.status(401).json({ error: 'No autorizado' });
@@ -24,11 +24,16 @@ function authMiddleware(req, res, next) {
     }
 
     const payload = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Normalizar payload: soporta id_usuario o id
+    const id_usuario = payload.id_usuario || payload.id || payload.sub || null;
+
     req.user = {
-      id_usuario: payload.id_usuario,
-      email: payload.email,
-      rol: payload.rol
+      id_usuario,
+      email: payload.email || null,
+      rol: payload.rol || payload.role || null
     };
+
     next();
   } catch (err) {
     if (err && err.name === 'TokenExpiredError') {
