@@ -8,13 +8,32 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-app.use(helmet());
+// Helmet con Content Security Policy que permite cargar FullCalendar desde jsdelivr
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        styleSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'", process.env.FRONTEND_ORIGIN || "'self'"],
+        frameAncestors: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"]
+      }
+    }
+  })
+);
+
 app.use(
   cors({
     origin: process.env.FRONTEND_ORIGIN || true,
     credentials: true
   })
 );
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
