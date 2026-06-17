@@ -9,9 +9,12 @@ const pool = require('../config/db');
 
 const LOGIN_RATE_LIMIT = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { error: 'Demasiados intentos. Intenta de nuevo más tarde.' }
 });
+
 
 function generateAccessToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
