@@ -1088,82 +1088,207 @@ async function loadCalendar() {
   const month = calDate.getMonth();
 
   const names = [
-    'Ene',
-    'Feb',
-    'Mar',
-    'Abr',
-    'May',
-    'Jun',
-    'Jul',
-    'Ago',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dic'
+    'Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'
   ];
 
-  $('cal-title').textContent = `${names[month]} ${year}`;
+  // Actualiza título
+  const calTitleEl = $('cal-title');
+  if (calTitleEl) calTitleEl.textContent = `${names[month]} ${year}`;
 
   try {
-    const citas = await api('GET', '/citas?estado=programada');
+    // Trae todas las citas programadas y agrupa por fecha (YYYY-MM-DD)
+    const citas = await api('GET', '/citas?estado=programada') || [];
     const citaMap = {};
+    const citasByDate = {};
 
     citas.forEach(c => {
-      const key = c.fecha_hora?.slice(0, 10);
-      if (key) citaMap[key] = (citaMap[key] || 0) + 1;
+      const key = c.fecha_hora ? c.fecha_hora.slice(0, 10) : null;
+      if (!key) return;
+      citaMap[key] = (citaMap[key] || 0) + 1;
+      citasByDate[key] = citasByDate[key] || [];
+      citasByDate[key].push(c);
     });
 
-    const grid = $('cal-grid');
+    // Contenedor principal (usa #calendar como contenedor único)
+    const container = document.getElementById('calendar');
+    if (!container) {
+      console.warn('No se encontró #calendar en el DOM.');
+      return;
+    }
 
-    const headers = Array.from(grid.querySelectorAll('.cal-header'));
+    // Limpia y crea la grid internamente
+    container.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.id = 'cal-grid';
+    grid.className = 'calendar-grid';
 
-    grid.innerHTML = '';
+    // Cabeceras de días
+    const headers = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    headers.forEach(h => {
+      const el = document.createElement('div');
+      el.className = 'cal-header';
+      el.textContent = h;
+      grid.appendChild(el);
+    });
 
-    headers.forEach(h => grid.appendChild(h));
-
+    // Cálculos de mes
     const first = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = new Date().toISOString().slice(0, 10);
 
+    // Casillas vacías del mes anterior
     for (let i = 0; i < first; i++) {
       const div = document.createElement('div');
       div.className = 'cal-day other-month';
       grid.appendChild(div);
     }
 
+    // Días del mes
     for (let d = 1; d <= daysInMonth; d++) {
       const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
       const div = document.createElement('div');
       div.className = 'cal-day' + (key === today ? ' today' : '');
+      div.setAttribute('data-date', key);
 
-      div.innerHTML = `
-        <span>${d}</span>
-        ${
-          citaMap[key]
-            ? `<div class="dot-row">${'<div class="dot"></div>'.repeat(Math.min(citaMap[key], 4))}</div>`
-            : ''
-        }
-      `;
+      // Contenido del día: número y puntos si hay citas
+      const dotsHtml = citaMap[key]
+        ? `<div class="dot-row">${'<div class="dot"></div>'.repeat(Math.min(citaMap[key], 4))}</div>`
+        : '';
 
+      div.innerHTML = `<span class="cal-day-number">${d}</span>${dotsHtml}`;
       div.title = citaMap[key] ? `${citaMap[key]} cita(s)` : '';
+
+      // Click en día: abrir modal y listar citas de ese día
+      div.addEventListener('click', async () => {
+        const dateStr = key;
+        openDayModal(dateStr, citasByDate[dateStr] || []);
+      });
 
       grid.appendChild(div);
     }
+
+    container.appendChild(grid);
   } catch (err) {
-    console.error(err);
+    console.error('Error en loadCalendar:', err);
   }
 }
 
-$('cal-prev').addEventListener('click', () => {
-  calDate.setMonth(calDate.getMonth() - 1);
+// Funciones del modal (usa los elementos que ya tienes en el HTML)
+function openDayModal(dateStr, events) {
+  const modal = document.getElementById('dayModal');
+  const modalDateTitle = document.getElementById('modalDateTitle');
+  const eventsList = document.getElementById('eventsList');
+  const noEvents = document.getElementById('noEvents');
+
+  if (!modal || !modalDateTitle || !eventsList || !noEvents) {
+    console.warn('Modal o elementos del modal no encontrados.');
+    return;
+  }
+
+  modal.style.display = 'block';
+  modalDateTitle.textContent = new Date(dateStr).toLocaleDateString();
+  eventsList.innerHTML = '';
+
+  if (!events || events.length === 0) {
+    noEvents.style.display = 'block';
+    return;
+  }
+  noEvents.style.display = 'none';
+
+  events.forEach(e => {
+    const li = document.createElement('li');
+    li.className = 'event-item';
+
+    const left = document.createElement('div');
+    const title = document.createElement('div');
+    title.className = 'event-title';
+    title.textContent = e.titulo || e.proposito || 'Sin título';
+
+    const time = document.createElement('div');
+    time.className = 'event-time';
+    const inicio = e.fecha_hora || e.inicio || e.start;
+    const fin = e.fin || e.end;
+    time.textContent = inicio ? formatTime(inicio) + (fin ? ' — ' + formatTime(fin) : '') : '';
+
+    left.appendChild(title);
+    left.appendChild(time);
+
+    const actions = document.createElement('div');
+    actions.className = 'event-actions';
+
+    const viewBtn = document.createElement('button');
+    viewBtn.textContent = 'Ver';
+    viewBtn.addEventListener('click', () => {
+      alert((e.titulo || e.proposito || '') + '\n\n' + (e.descripcion || e.detalle || 'Sin descripción'));
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Eliminar';
+    deleteBtn.addEventListener('click', async () => {
+      if (!confirm('Eliminar esta cita?')) return;
+      try {
+        await api('DELETE', `/citas/${e.id || e.id_cita || e.id_cita_evento}`);
+        // refrescar calendario
+        loadCalendar();
+        closeDayModal();
+      } catch (err) {
+        console.error('Error eliminando cita:', err);
+        alert('No se pudo eliminar la cita.');
+      }
+    });
+
+    actions.appendChild(viewBtn);
+    actions.appendChild(deleteBtn);
+
+    li.appendChild(left);
+    li.appendChild(actions);
+    eventsList.appendChild(li);
+  });
+}
+
+function closeDayModal() {
+  const modal = document.getElementById('dayModal');
+  const eventsList = document.getElementById('eventsList');
+  const noEvents = document.getElementById('noEvents');
+  if (modal) modal.style.display = 'none';
+  if (eventsList) eventsList.innerHTML = '';
+  if (noEvents) noEvents.style.display = 'none';
+}
+
+function formatTime(iso) {
+  try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  catch (e) { return ''; }
+}
+
+// Conectar botones del modal (si existen)
+const closeModalBtn = document.getElementById('closeModal');
+if (closeModalBtn) closeModalBtn.addEventListener('click', closeDayModal);
+window.addEventListener('click', (e) => { const modal = document.getElementById('dayModal'); if (e.target === modal) closeDayModal(); });
+
+// Navegación del calendario
+const calPrevBtn = document.getElementById('cal-prev');
+const calNextBtn = document.getElementById('cal-next');
+
+if (calPrevBtn) {
+  calPrevBtn.addEventListener('click', () => {
+    calDate.setMonth(calDate.getMonth() - 1);
+    loadCalendar();
+  });
+}
+if (calNextBtn) {
+  calNextBtn.addEventListener('click', () => {
+    calDate.setMonth(calDate.getMonth() + 1);
+    loadCalendar();
+  });
+}
+
+// Inicializa al cargar el script
+document.addEventListener('DOMContentLoaded', () => {
+  // carga inicial
   loadCalendar();
 });
 
-$('cal-next').addEventListener('click', () => {
-  calDate.setMonth(calDate.getMonth() + 1);
-  loadCalendar();
-});
 // ── HORARIOS ───────────────────────────────────
 let editingHorario = null;
 
