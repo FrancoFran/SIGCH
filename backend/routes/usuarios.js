@@ -7,6 +7,9 @@ const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const pool = require('../config/db');
 
+const authMiddleware = require('../middleware/auth');
+const requireRole = require('../middleware/roles');
+
 const LOGIN_RATE_LIMIT = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
@@ -25,31 +28,6 @@ function generateRefreshToken(payload) {
   return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
 }
 
-function authMiddlewareLocal(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'No autorizado' });
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') return res.status(401).json({ error: 'Formato de token inválido' });
-  const token = parts[1];
-  try {
-    if (!process.env.JWT_SECRET) return res.status(500).json({ error: 'Configuración del servidor incompleta' });
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload;
-    next();
-  } catch (e) {
-    return res.status(401).json({ error: 'Token inválido o expirado' });
-  }
-}
-
-function requireRole(role) {
-  return (req, res, next) => {
-    if (!req.user || req.user.rol !== role) {
-      return res.status(403).json({ error: 'No tiene permisos para realizar esta acción' });
-    }
-    next();
-  };
-}
-
 async function normalizeQueryResult(qres) {
   if (!qres) return [];
   if (Array.isArray(qres) && qres.length === 2 && Array.isArray(qres[0])) return qres[0];
@@ -59,7 +37,11 @@ async function normalizeQueryResult(qres) {
   return [];
 }
 
-router.get('/', authMiddlewareLocal, requireRole('administrador'), async (req, res) => {
+/* -------------------------
+   Rutas de usuarios
+   ------------------------- */
+
+router.get('/', authMiddleware, requireRole('administrador'), async (req, res) => {
   try {
     const qres = await pool.query(
       `SELECT id_usuario, nombre_completo, email, rol, activo, fecha_creacion
@@ -74,7 +56,7 @@ router.get('/', authMiddlewareLocal, requireRole('administrador'), async (req, r
   }
 });
 
-router.get('/:id', authMiddlewareLocal, requireRole('administrador'), async (req, res) => {
+router.get('/:id', authMiddleware, requireRole('administrador'), async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
@@ -95,10 +77,10 @@ router.get('/:id', authMiddlewareLocal, requireRole('administrador'), async (req
 
 router.post(
   '/',
-  authMiddlewareLocal,
+  authMiddleware,
   requireRole('administrador'),
-  body('nombre_completo').isString().isLength({ min: 1 }),
-  body('email').isEmail(),
+  body('nombre_completo').isString().isLength({ min: 1 }).trim(),
+  body('email').isEmail().normalizeEmail().trim(),
   body('contrasena').isString().isLength({ min: 8 }),
   body('rol').isIn(['recepcionista', 'psicologo', 'administrador']),
   async (req, res) => {
@@ -126,9 +108,9 @@ router.post(
 
 router.put(
   '/:id',
-  authMiddlewareLocal,
+  authMiddleware,
   requireRole('administrador'),
-  body('email').optional().isEmail(),
+  body('email').optional().isEmail().normalizeEmail().trim(),
   body('contrasena').optional().isString().isLength({ min: 8 }),
   body('rol').optional().isIn(['recepcionista', 'psicologo', 'administrador']),
   async (req, res) => {
@@ -175,7 +157,7 @@ router.put(
   }
 );
 
-router.delete('/:id', authMiddlewareLocal, requireRole('administrador'), async (req, res) => {
+router.delete('/:id', authMiddleware, requireRole('administrador'), async (req, res) => {
   try {
     const idAEliminar = Number(req.params.id);
     const idUsuarioActual = Number(req.user.id_usuario);
@@ -194,7 +176,7 @@ router.delete('/:id', authMiddlewareLocal, requireRole('administrador'), async (
 router.post(
   '/auth/login',
   LOGIN_RATE_LIMIT,
-  body('email').isEmail(),
+  body('email').isEmail().normalizeEmail().trim(),
   body('contrasena').isString().isLength({ min: 1 }),
   async (req, res) => {
     const errors = validationResult(req);
