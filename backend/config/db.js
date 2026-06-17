@@ -1,13 +1,15 @@
+// backend/config/db.js
 const { Pool } = require('pg');
 
 const maxPool = Number(process.env.DB_POOL_MAX) || (process.env.VERCEL ? 3 : 10);
 
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: Number(process.env.DB_PORT) || 5432,
+  connectionString: process.env.DATABASE_URL || undefined,
+  host: process.env.DATABASE_URL ? undefined : process.env.DB_HOST,
+  user: process.env.DATABASE_URL ? undefined : process.env.DB_USER,
+  password: process.env.DATABASE_URL ? undefined : process.env.DB_PASSWORD,
+  database: process.env.DATABASE_URL ? undefined : process.env.DB_NAME,
+  port: process.env.DATABASE_URL ? undefined : (Number(process.env.DB_PORT) || 5432),
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   max: maxPool,
   idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30000,
@@ -22,14 +24,6 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
   process.exit(1);
 });
-
-if (process.env.NODE_ENV !== 'production') {
-  pool.query('SELECT 1').then(() => {
-    console.log('DB connection OK');
-  }).catch((err) => {
-    console.error('DB connection error:', err && err.message ? err.message : err);
-  });
-}
 
 process.on('SIGINT', async () => {
   try {
