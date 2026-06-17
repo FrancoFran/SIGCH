@@ -1945,3 +1945,61 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 });
+
+
+
+// Debug: overlay de errores y logs para modal y peticiones
+(function() {
+  // pequeño panel de debug
+  const dbg = document.createElement('div');
+  dbg.id = 'debugPanel';
+  dbg.style = 'position:fixed;right:10px;bottom:10px;z-index:99999;background:rgba(0,0,0,0.7);color:#fff;padding:8px;border-radius:6px;font-size:12px;max-width:320px;max-height:200px;overflow:auto;';
+  dbg.innerHTML = '<b>Debug</b><div id="dbgContent"></div>';
+  document.body.appendChild(dbg);
+
+  function dbgLog(msg) {
+    const c = document.getElementById('dbgContent');
+    if (!c) return;
+    const p = document.createElement('div');
+    p.textContent = (new Date()).toLocaleTimeString() + ' — ' + msg;
+    c.prepend(p);
+  }
+
+  // Wrap api to log requests/responses
+  const _origApi = window.api;
+  window.api = async function(method, path, body = null) {
+    dbgLog(`API ${method} ${path} body=${body ? JSON.stringify(body) : 'null'}`);
+    try {
+      const res = await _origApi(method, path, body);
+      dbgLog(`OK ${method} ${path} -> ${JSON.stringify(res).slice(0,200)}`);
+      return res;
+    } catch (err) {
+      dbgLog(`ERR ${method} ${path} -> ${err.message || err.status}`);
+      // muestra alerta modal si falla
+      try {
+        const modal = document.getElementById('dayModal');
+        if (modal) {
+          modal.style.display = 'block';
+          const title = document.getElementById('modalDateTitle');
+          const list = document.getElementById('eventsList');
+          const noEv = document.getElementById('noEvents');
+          if (title) title.textContent = 'Error';
+          if (list) list.innerHTML = `<li class="event-item">Error: ${err.message || err.status}</li>`;
+          if (noEv) noEv.style.display = 'none';
+        } else {
+          alert('Error: ' + (err.message || err.status));
+        }
+      } catch(e) { console.error(e); }
+      throw err;
+    }
+  };
+
+  // Log cuando se abre el modal
+  const origOpen = window.openDayModal;
+  window.openDayModal = function(dateStr, events) {
+    dbgLog('openDayModal ' + dateStr + ' events=' + (events ? events.length : 0));
+    try { return origOpen(dateStr, events); } catch (e) { dbgLog('openDayModal error: ' + e.message); throw e; }
+  };
+
+  dbgLog('Debug panel inicializado');
+})();
