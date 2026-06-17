@@ -1,4 +1,3 @@
-// backend/middleware/auth.js
 const jwt = require('jsonwebtoken');
 
 function authMiddleware(req, res, next) {
@@ -17,6 +16,11 @@ function authMiddleware(req, res, next) {
 
     if (!token) return res.status(401).json({ error: 'No autorizado' });
 
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET no está definido en las variables de entorno');
+      return res.status(500).json({ error: 'Configuración del servidor incompleta' });
+    }
+
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     req.user = {
       id_usuario: payload.id_usuario,
@@ -25,7 +29,7 @@ function authMiddleware(req, res, next) {
     };
     next();
   } catch (err) {
-    if (err.name === 'TokenExpiredError') {
+    if (err && err.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token expirado' });
     }
     return res.status(401).json({ error: 'Token inválido' });
