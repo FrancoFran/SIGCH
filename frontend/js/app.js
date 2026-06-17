@@ -1712,4 +1712,108 @@ document.addEventListener('DOMContentLoaded', () => {
       tienePermiso('horarios') ? 'inline-flex' : 'none';
   }
   }
+
+  // Inicializador FullCalendar y modal de día
+document.addEventListener('DOMContentLoaded', function() {
+  const calendarEl = document.getElementById('calendar');
+  if (!calendarEl) return;
+
+  const modal = document.getElementById('dayModal');
+  const closeModal = document.getElementById('closeModal');
+  const modalDateTitle = document.getElementById('modalDateTitle');
+  const eventsList = document.getElementById('eventsList');
+  const noEvents = document.getElementById('noEvents');
+
+  function openModal(dateStr) {
+    modal.style.display = 'block';
+    modalDateTitle.textContent = new Date(dateStr).toLocaleDateString();
+  }
+  function closeModalFn() {
+    modal.style.display = 'none';
+    eventsList.innerHTML = '';
+    noEvents.style.display = 'none';
+  }
+  closeModal.addEventListener('click', closeModalFn);
+  window.addEventListener('click', (e) => { if (e.target === modal) closeModalFn(); });
+
+  async function fetchEventsForDate(dateStr) {
+    const start = dateStr + 'T00:00:00Z';
+    const end = dateStr + 'T23:59:59Z';
+    const token = localStorage.getItem('accessToken') || '';
+    const res = await fetch(`/api/eventos?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Error cargando eventos');
+    return await res.json();
+  }
+
+  function formatTime(iso) {
+    try { const d = new Date(iso); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return ''; }
+  }
+
+  function renderEventsList(events) {
+    eventsList.innerHTML = '';
+    if (!events || events.length === 0) { noEvents.style.display = 'block'; return; }
+    noEvents.style.display = 'none';
+    events.forEach(e => {
+      const li = document.createElement('li'); li.className = 'event-item';
+      const left = document.createElement('div');
+      const title = document.createElement('div'); title.className = 'event-title'; title.textContent = e.titulo || 'Sin título';
+      const time = document.createElement('div'); time.className = 'event-time'; time.textContent = formatTime(e.inicio) + (e.fin ? ' — ' + formatTime(e.fin) : '');
+      left.appendChild(title); left.appendChild(time);
+      const actions = document.createElement('div'); actions.className = 'event-actions';
+      const viewBtn = document.createElement('button'); viewBtn.textContent = 'Ver';
+      viewBtn.addEventListener('click', () => { alert((e.titulo || '') + '\n\n' + (e.descripcion || 'Sin descripción') + '\n\nAsignado a: ' + (e.asignado_a || 'N/A')); });
+      const deleteBtn = document.createElement('button'); deleteBtn.textContent = 'Eliminar';
+      deleteBtn.addEventListener('click', async () => {
+        if (!confirm('Eliminar evento?')) return;
+        const token = localStorage.getItem('accessToken') || '';
+        const r = await fetch('/api/eventos/' + e.id_evento, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+        if (r.ok) { li.remove(); if (!eventsList.children.length) noEvents.style.display = 'block'; }
+        else alert('No autorizado o error');
+      });
+      actions.appendChild(viewBtn); actions.appendChild(deleteBtn);
+      li.appendChild(left); li.appendChild(actions);
+      eventsList.appendChild(li);
+    });
+  }
+
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+    selectable: true,
+    editable: true,
+    eventDisplay: 'block',
+    dateClick: async function(info) {
+      const dateStr = info.dateStr;
+      openModal(dateStr);
+      try {
+        const events = await fetchEventsForDate(dateStr);
+        renderEventsList(events);
+      } catch (err) {
+        eventsList.innerHTML = '';
+        noEvents.style.display = 'block';
+      }
+    },
+    events: async function(fetchInfo, successCallback, failureCallback) {
+      try {
+        const start = fetchInfo.startStr;
+        const end = fetchInfo.endStr;
+        const token = localStorage.getItem('accessToken') || '';
+        const res = await fetch(`/api/eventos?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error('Error cargando eventos');
+        const data = await res.json();
+        const events = data.map(e => ({ id: e.id_evento, title: e.titulo, start: e.inicio, end: e.fin }));
+        successCallback(events);
+      } catch (err) { failureCallback(err); }
+    }
+  });
+
+  calendar.render();
+  window.calendar = calendar;
+});
+
 });
