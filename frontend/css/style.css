@@ -409,3 +409,123 @@ tr:hover td { background: rgba(255,255,255,.02); }
   #main { margin-left: 0; padding: 16px; }
   .form-grid { grid-template-columns: 1fr; }
 }
+
+
+
+/* === Dark theme overrides for SIGCH calendar & modal === */
+
+/* Global background / text */
+body {
+  background-color: #0f1113 !important;
+  color: #e6eef6 !important;
+}
+
+/* Main containers */
+#login-screen,
+#sidebar,
+#main,
+.section,
+.section-header,
+.calendar-nav {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+/* Calendar container and grid */
+#calendar,
+#cal-grid,
+.calendar-grid {
+  background-color: transparent !important;
+  color: inherit !important;
+  border: none !important;
+}
+
+/* Headers (Dom, Lun, ...) */
+.cal-header {
+  background: transparent !important;
+  color: #cfe6ff !important;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* Day cells */
+.cal-day {
+  background: #0b0c0d !important;
+  color: #e6eef6 !important;
+  border: 1px solid rgba(255,255,255,0.03) !important;
+  min-height: 80px;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+/* Days from other months */
+.cal-day.other-month {
+  background: rgba(255,255,255,0.01) !important;
+  color: rgba(230,238,246,0.45) !important;
+}
+
+/* Today highlight */
+.cal-day.today {
+  background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)) !important;
+  box-shadow: 0 0 0 2px rgba(100,150,255,0.06) inset !important;
+}
+
+/* Day number */
+.cal-day-number,
+.cal-day > span {
+  color: #e6eef6 !important;
+  font-weight: 600;
+}
+
+/* Dots that indicate citas */
+.dot-row { margin-top: 6px; display:flex; gap:6px; }
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: linear-gradient(180deg,#6fb3ff,#2b7be4) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* Modal */
+.modal { background: rgba(0,0,0,0.6) !important; }
+.modal-content {
+  background: #0f1316 !important;
+  color: #e6eef6 !important;
+  border: 1px solid rgba(255,255,255,0.03) !important;
+}
+.close-btn { background: #e74c3c !important; color: #fff !important; }
+
+/* Event list items */
+.event-item {
+  background: rgba(255,255,255,0.02) !important;
+  color: #e6eef6 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.03) !important;
+}
+
+/* Buttons */
+button, .btn {
+  background: rgba(255,255,255,0.03) !important;
+  color: #e6eef6 !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* Inputs */
+input, textarea, select {
+  background: #0b0c0d !important;
+  color: #e6eef6 !important;
+  border: 1px solid rgba(255,255,255,0.03) !important;
+}
+
+/* FullCalendar (si en algún momento lo usas) */
+.fc, .fc * { color: #e6eef6 !important; }
+.fc .fc-daygrid-day {
+  background: transparent !important;
+  border: 1px solid rgba(255,255,255,0.03) !important;
+}
+.fc .fc-event {
+  background: linear-gradient(180deg,#2b7be4,#1f5fb8) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+/* Small helpers */
+a { color: #8fc7ff !important; }
