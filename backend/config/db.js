@@ -13,7 +13,7 @@ const pool = new Pool({
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   max: maxPool,
   idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30000,
-  connectionTimeoutMillis: Number(process.env.DB_CONN_TIMEOUT_MS) || 2000
+  connectionTimeoutMillis: Number(process.env.DB_CONN_TIMEOUT_MS) || 20000
 });
 
 process.on('unhandledRejection', (reason) => {
@@ -33,6 +33,17 @@ process.on('SIGINT', async () => {
     process.exit(1);
   }
 });
+
+(async () => {
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      await pool.query('SELECT 1');
+      console.log('DB connection OK');
+    } catch (err) {
+      console.error('DB connection error at startup:', err && err.message ? err.message : err);
+    }
+  }
+})();
 
 module.exports = {
   query: async (text, params) => {
