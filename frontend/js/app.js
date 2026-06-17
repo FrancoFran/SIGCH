@@ -1948,6 +1948,88 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+
+
+
+// --- Debug + helper para rellenar modal de edición/creación ---
+function fillFormFields(prefix, data) {
+  // prefix: '' o 'edit-' si tus inputs son edit-nombre, edit-fecha, etc.
+  Object.keys(data || {}).forEach(key => {
+    const id = prefix + key;
+    const el = document.getElementById(id);
+    if (el) {
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+        el.value = data[key] == null ? '' : data[key];
+      } else {
+        el.textContent = data[key];
+      }
+    } else {
+      // log para depuración
+      console.debug('fillFormFields: no existe', id);
+    }
+  });
+}
+
+function openEditModal(cita) {
+  // Asegura que el modal se muestre y se rellenen campos
+  const modal = document.getElementById('dayModal') || document.getElementById('editModal');
+  if (!modal) { console.warn('openEditModal: modal no encontrado'); return; }
+  // Ejemplo de mapeo: adapta claves según tu API
+  const payload = {
+    id_cita: cita.id_cita || cita.id,
+    paciente_id: cita.id_paciente || cita.paciente_id,
+    psicologo_id: cita.id_psicologo || cita.psicologo_id,
+    fecha_hora: cita.fecha_hora || cita.inicio || cita.start,
+    motivo: cita.motivo || cita.title || cita.titulo
+  };
+  // Rellena inputs con ids: edit-id_cita, edit-paciente_id, edit-psicologo_id, edit-fecha_hora, edit-motivo
+  fillFormFields('edit-', payload);
+  // muestra modal
+  modal.style.display = 'block';
+  // asegúrate que el contenido sea visible
+  const content = modal.querySelector('.modal-content');
+  if (content) { content.style.display = 'block'; content.style.zIndex = 10001; }
+  console.log('openEditModal: modal abierto y rellenado', payload);
+}
+
+// Handler para crear nuevo (limpia campos y abre modal)
+function openCreateModal() {
+  const modal = document.getElementById('dayModal') || document.getElementById('editModal');
+  if (!modal) return;
+  // limpia campos con prefijo 'edit-'
+  ['id_cita','paciente_id','psicologo_id','fecha_hora','motivo'].forEach(k => {
+    const el = document.getElementById('edit-' + k);
+    if (el) el.value = '';
+  });
+  modal.style.display = 'block';
+  const content = modal.querySelector('.modal-content');
+  if (content) { content.style.display = 'block'; content.style.zIndex = 10001; }
+  console.log('openCreateModal: modal abierto (nuevo)');
+}
+
+// Delegación: si hay botones con data-action, los manejamos
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  if (action === 'editCita') {
+    // pide la cita y abre modal
+    api('GET', `/citas/${id}`).then(cita => openEditModal(cita)).catch(err => {
+      console.error('Error cargando cita para editar', err);
+      alert('No se pudo cargar la cita: ' + (err.message || err.status));
+    });
+  } else if (action === 'createCita') {
+    openCreateModal();
+  }
+});
+
+
+
+
+
+
+
 // Debug: overlay de errores y logs para modal y peticiones
 (function() {
   // pequeño panel de debug
