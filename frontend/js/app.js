@@ -215,21 +215,11 @@ document.querySelectorAll('[data-nav]').forEach(a => {
 });
 
 // ── MODAL HELPERS (CORREGIDOS) ─────────────────
+// ── MODAL HELPERS ──────────────────────────────
 function openModal(id) {
   const modal = $(id);
   if (modal) {
     modal.classList.add('open');
-    modal.style.display = 'flex'; // Fuerza el fondo oscuro
-    modal.style.zIndex = '10000'; // Al frente
-    
-    // Fuerza a que la caja blanca del formulario sea visible
-    const content = modal.querySelector('.modal-content');
-    if (content) {
-      content.style.display = 'block';
-      content.style.visibility = 'visible';
-      content.style.opacity = '1';
-      content.style.zIndex = '10001';
-    }
   }
 }
 
@@ -237,19 +227,8 @@ function closeModal(id) {
   const modal = $(id);
   if (modal) {
     modal.classList.remove('open');
-    modal.style.display = 'none'; // Asegura que desaparezca por completo
   }
 }
-
-document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const modal = btn.closest('.modal-overlay') || btn.closest('.modal');
-    if (modal) {
-      modal.classList.remove('open');
-      modal.style.display = 'none';
-    }
-  });
-});
 
 // ── DASHBOARD ──────────────────────────────────
 async function loadDashboard() {
@@ -1323,6 +1302,8 @@ async function loadAuditoria() {
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
+  
+  e.preventDefault(); // <-- ESTO EVITA EL ERROR 500 DE VERCEL
   
   const action = btn.dataset.action;
   const id = btn.dataset.id;
