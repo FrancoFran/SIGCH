@@ -15,7 +15,8 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
-        styleSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        styleSrc: ["'self'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "'unsafe-inline'"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:"],
         connectSrc: ["'self'", process.env.FRONTEND_ORIGIN || "'self'"],
         frameAncestors: ["'self'"],
@@ -26,6 +27,7 @@ app.use(
     }
   })
 );
+
 
 app.use(
   cors({
