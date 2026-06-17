@@ -11,8 +11,9 @@ function authMiddleware(req, res, next) {
       if (parts.length === 2 && parts[0] === 'Bearer') token = parts[1];
     }
 
-    if (!token && req.cookies && req.cookies.accessToken) {
-      token = req.cookies.accessToken;
+    if (!token && req.cookies && req.cookies.refreshToken) {
+      // preferimos accessToken en header; si usas cookie con accessToken, ajusta nombre
+      token = req.cookies.accessToken || null;
     }
 
     if (!token) return res.status(401).json({ error: 'No autorizado' });
@@ -33,6 +34,7 @@ function authMiddleware(req, res, next) {
     if (err && err.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token expirado' });
     }
+    console.error('Auth middleware error:', err && err.stack ? err.stack : err);
     return res.status(401).json({ error: 'Token inválido' });
   }
 }
