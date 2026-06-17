@@ -1,4 +1,4 @@
-/* PATCHED BY AI: VERSIÓN COMPLETA Y RESTAURADA */
+/* PATCHED BY AI: FIX MODAL VISIBILITY */
 const API = '/api';
 let currentUser = null;
 
@@ -214,13 +214,22 @@ document.querySelectorAll('[data-nav]').forEach(a => {
   });
 });
 
-// ── MODAL HELPERS ──────────────────────────────
+// ── MODAL HELPERS (CORREGIDOS) ─────────────────
 function openModal(id) {
   const modal = $(id);
   if (modal) {
-    // Restaurado al comportamiento original puro sin forzar display inline
     modal.classList.add('open');
-    modal.style.zIndex = '10000';
+    modal.style.display = 'flex'; // Fuerza el fondo oscuro
+    modal.style.zIndex = '10000'; // Al frente
+    
+    // Fuerza a que la caja blanca del formulario sea visible
+    const content = modal.querySelector('.modal-content');
+    if (content) {
+      content.style.display = 'block';
+      content.style.visibility = 'visible';
+      content.style.opacity = '1';
+      content.style.zIndex = '10001';
+    }
   }
 }
 
@@ -228,14 +237,16 @@ function closeModal(id) {
   const modal = $(id);
   if (modal) {
     modal.classList.remove('open');
+    modal.style.display = 'none'; // Asegura que desaparezca por completo
   }
 }
 
 document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
   btn.addEventListener('click', () => {
-    const modal = btn.closest('.modal-overlay');
+    const modal = btn.closest('.modal-overlay') || btn.closest('.modal');
     if (modal) {
       modal.classList.remove('open');
+      modal.style.display = 'none';
     }
   });
 });
@@ -279,10 +290,7 @@ async function loadDashboard() {
 let editingUsuario = null;
 
 async function loadUsuarios() {
-  if (!puedeGestionarUsuarios()) {
-    alert('No tiene permiso para ver usuarios.');
-    return;
-  }
+  if (!puedeGestionarUsuarios()) return;
   try {
     const rows = await api('GET', '/usuarios');
     const tbody = $('usuarios-tbody');
@@ -374,10 +382,7 @@ if ($('form-usuario')) {
 let editingPsicologo = null;
 
 async function loadPsicologos() {
-  if (!puedeGestionarPsicologos()) {
-    alert('No tiene permiso para ver psicólogos.');
-    return;
-  }
+  if (!puedeGestionarPsicologos()) return;
   try {
     const rows = await api('GET', '/psicologos');
     const tbody = $('psicologos-tbody');
@@ -799,8 +804,7 @@ function openDayModal(dateStr, events) {
 
   if (!modal || !modalDateTitle || !eventsList || !noEvents) return;
 
-  modal.classList.add('open');
-  modal.style.zIndex = '10000';
+  openModal('dayModal'); // Ahora usa la función global corregida
   modalDateTitle.textContent = new Date(dateStr).toLocaleDateString();
   eventsList.innerHTML = '';
 
@@ -822,7 +826,6 @@ function openDayModal(dateStr, events) {
     const time = document.createElement('div');
     time.className = 'event-time';
     const inicio = e.fecha_hora || e.inicio || e.start;
-    const fin = e.fin || e.end;
     
     let timeString = '';
     try { timeString = inicio ? new Date(inicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''; } catch(err){}
@@ -841,7 +844,7 @@ function openDayModal(dateStr, events) {
       try {
         await api('DELETE', `/citas/${e.id || e.id_cita || e.id_cita_evento}`);
         loadCalendar();
-        closeDayModal();
+        closeModal('dayModal');
       } catch (err) {
         alert('No se pudo eliminar la cita.');
       }
@@ -852,11 +855,6 @@ function openDayModal(dateStr, events) {
     li.appendChild(actions);
     eventsList.appendChild(li);
   });
-}
-
-function closeDayModal() {
-  const modal = document.getElementById('dayModal');
-  if (modal) modal.classList.remove('open');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -870,10 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let editingHistorial = null;
 
 async function loadHistorial() {
-  if (!puedeGestionarHistorial()) {
-    alert('No tiene permiso para ver el historial.');
-    return;
-  }
+  if (!puedeGestionarHistorial()) return;
   try {
     const rows = await api('GET', '/historial');
     const tbody = $('historial-tbody');
@@ -978,10 +973,7 @@ if ($('form-historial')) {
 let editingHorario = null;
 
 async function loadHorarios() {
-  if (!tienePermiso('horarios')) {
-    alert('No tiene permiso para ver horarios.');
-    return;
-  }
+  if (!tienePermiso('horarios')) return;
   try {
     const rows = await api('GET', '/horarios');
     const tbody = $('horarios-tbody');
@@ -1087,10 +1079,7 @@ if ($('form-horario')) {
 
 // ── SESIONES CLÍNICAS ──────────────────────────
 async function loadSesiones() {
-  if (!tienePermiso('sesiones')) {
-    alert('No tiene permiso para ver sesiones.');
-    return;
-  }
+  if (!tienePermiso('sesiones')) return;
   try {
     const rows = await api('GET', '/sesiones');
     const tbody = $('sesiones-tbody');
@@ -1169,10 +1158,7 @@ if ($('form-sesion')) {
 
 // ── RECORDATORIOS ──────────────────────────────
 async function loadRecordatorios() {
-  if (!tienePermiso('recordatorios')) {
-    alert('No tiene permiso para ver recordatorios.');
-    return;
-  }
+  if (!tienePermiso('recordatorios')) return;
   try {
     const rows = await api('GET', '/recordatorios');
     const tbody = $('recordatorios-tbody');
@@ -1256,10 +1242,7 @@ if ($('form-recordatorio')) {
 
 // ── REPORTES ───────────────────────────────────
 async function loadReportes() {
-  if (!tienePermiso('reportes')) {
-    alert('No tiene permiso para ver reportes.');
-    return;
-  }
+  if (!tienePermiso('reportes')) return;
   await cargarReporteResumen();
 }
 
@@ -1308,10 +1291,7 @@ if ($('btn-reporte-citas')) $('btn-reporte-citas').addEventListener('click', car
 
 // ── AUDITORÍA ──────────────────────────────────
 async function loadAuditoria() {
-  if (!tienePermiso('auditoria')) {
-    alert('No tiene permiso para ver auditoría.');
-    return;
-  }
+  if (!tienePermiso('auditoria')) return;
   try {
     const rows = await api('GET', '/auditoria');
     const tbody = $('auditoria-tbody');
@@ -1368,6 +1348,7 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => {
     if (e.target === overlay) {
       overlay.classList.remove('open');
+      overlay.style.display = 'none'; // Asegura que desaparezca
     }
   });
 });
