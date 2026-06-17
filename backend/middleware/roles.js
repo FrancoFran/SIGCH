@@ -1,14 +1,12 @@
 // backend/middleware/roles.js
-function requireRole(role) {
+module.exports = function requireRole(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'No autorizado' });
-    if (Array.isArray(role)) {
-      if (!role.includes(req.user.rol)) return res.status(403).json({ error: 'Permiso denegado' });
-      return next();
+    const userRole = String(req.user.rol || '').toLowerCase();
+    const allowed = allowedRoles.map(r => String(r).toLowerCase());
+    if (!allowed.includes(userRole)) {
+      return res.status(403).json({ error: 'Permiso denegado' });
     }
-    if (req.user.rol !== role) return res.status(403).json({ error: 'Permiso denegado' });
     next();
   };
-}
-
-module.exports = { requireRole };
+};
