@@ -1,4 +1,4 @@
-/* PATCHED BY AI: VERSIÓN DEFINITIVA CORREGIDA */
+/* PATCHED BY AI: VERSIÓN COMPLETA Y RESTAURADA */
 const API = '/api';
 let currentUser = null;
 
@@ -14,9 +14,8 @@ function showAlert(msg, type = 'error', containerId = 'modal-alert') {
   setTimeout(() => el.className = 'alert', 4000);
 }
 
-// Helper api robusto (reemplaza la función api existente)
+// Helper api robusto
 async function api(method, path, body = null) {
-  // 1. Fallback seguro para Tracking Prevention
   let token = null;
   try {
     token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
@@ -35,7 +34,6 @@ async function api(method, path, body = null) {
     const text = await res.text();
     let data;
     
-    // 2. Prevenir crasheo si Express devuelve HTML (Error 500)
     try { 
       data = text ? JSON.parse(text) : null; 
     } catch (e) { 
@@ -58,12 +56,7 @@ async function api(method, path, body = null) {
 async function registrarAuditoria(modulo, accion, descripcion) {
   try {
     if (!currentUser) return;
-
-    await api('POST', '/auditoria', {
-      modulo,
-      accion,
-      descripcion
-    });
+    await api('POST', '/auditoria', { modulo, accion, descripcion });
   } catch (err) {
     console.warn('No se pudo registrar auditoría:', err.message);
   }
@@ -71,10 +64,7 @@ async function registrarAuditoria(modulo, accion, descripcion) {
 
 function fmtDate(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleString('es-BO', {
-    dateStyle: 'short',
-    timeStyle: 'short'
-  });
+  return new Date(d).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function fmtDateOnly(d) {
@@ -83,27 +73,17 @@ function fmtDateOnly(d) {
 }
 
 function rolBadge(rol) {
-  const map = {
-    administrador: 'badge-blue',
-    psicologo: 'badge-green',
-    recepcionista: 'badge-yellow'
-  };
+  const map = { administrador: 'badge-blue', psicologo: 'badge-green', recepcionista: 'badge-yellow' };
   return `<span class="badge ${map[rol] || 'badge-gray'}">${rol}</span>`;
 }
 
 function estadoBadge(e) {
-  const map = {
-    programada: 'badge-blue',
-    realizada: 'badge-green',
-    cancelada: 'badge-red'
-  };
+  const map = { programada: 'badge-blue', realizada: 'badge-green', cancelada: 'badge-red' };
   return `<span class="badge ${map[e] || 'badge-gray'}">${e}</span>`;
 }
 
 function activoBadge(a) {
-  return a
-    ? '<span class="badge badge-green">Activo</span>'
-    : '<span class="badge badge-gray">Inactivo</span>';
+  return a ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-gray">Inactivo</span>';
 }
 
 function jsString(value) {
@@ -177,7 +157,6 @@ if ($('login-form')) {
       
       aplicarPermisosUI();
       navigate('dashboard');
-      if (window.calendar && typeof window.calendar.refetchEvents === 'function') window.calendar.refetchEvents();
     } catch (err) {
       showAlert(err.message || (err.error || 'Error de autenticación'), 'error', 'login-alert');
     }
@@ -239,15 +218,9 @@ document.querySelectorAll('[data-nav]').forEach(a => {
 function openModal(id) {
   const modal = $(id);
   if (modal) {
+    // Restaurado al comportamiento original puro sin forzar display inline
     modal.classList.add('open');
-    modal.style.display = 'flex'; // Fuerza a que se muestre el overlay
-    modal.style.zIndex = '10000'; // Fuerza que esté al frente
-    
-    const content = modal.querySelector('.modal-content');
-    if (content) {
-      content.style.display = 'block';
-      content.style.zIndex = '10001';
-    }
+    modal.style.zIndex = '10000';
   }
 }
 
@@ -255,7 +228,6 @@ function closeModal(id) {
   const modal = $(id);
   if (modal) {
     modal.classList.remove('open');
-    modal.style.display = 'none';
   }
 }
 
@@ -264,7 +236,6 @@ document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
     const modal = btn.closest('.modal-overlay');
     if (modal) {
       modal.classList.remove('open');
-      modal.style.display = 'none';
     }
   });
 });
@@ -308,13 +279,16 @@ async function loadDashboard() {
 let editingUsuario = null;
 
 async function loadUsuarios() {
-  if (!puedeGestionarUsuarios()) return;
+  if (!puedeGestionarUsuarios()) {
+    alert('No tiene permiso para ver usuarios.');
+    return;
+  }
   try {
     const rows = await api('GET', '/usuarios');
     const tbody = $('usuarios-tbody');
     if (!tbody) return;
 
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       tbody.innerHTML = `<tr><td colspan="6" class="empty"><div class="icon">👤</div>Sin usuarios</td></tr>`;
       return;
     }
@@ -332,7 +306,10 @@ async function loadUsuarios() {
         </td>
       </tr>
     `).join('');
-  } catch (err) { console.error(err); }
+  } catch (err) { 
+    console.error(err); 
+    alert('Error cargando usuarios: ' + err.message);
+  }
 }
 
 window.editUsuario = async id => {
@@ -397,13 +374,16 @@ if ($('form-usuario')) {
 let editingPsicologo = null;
 
 async function loadPsicologos() {
-  if (!puedeGestionarPsicologos()) return;
+  if (!puedeGestionarPsicologos()) {
+    alert('No tiene permiso para ver psicólogos.');
+    return;
+  }
   try {
     const rows = await api('GET', '/psicologos');
     const tbody = $('psicologos-tbody');
     if (!tbody) return;
 
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       tbody.innerHTML = `<tr><td colspan="6" class="empty"><div class="icon">🩺</div>Sin psicólogos</td></tr>`;
       return;
     }
@@ -421,7 +401,10 @@ async function loadPsicologos() {
         </td>
       </tr>
     `).join('');
-  } catch (err) { console.error(err); }
+  } catch (err) { 
+    console.error(err); 
+    alert('Error cargando psicólogos: ' + err.message);
+  }
 }
 
 async function populatePsicologoUsers() {
@@ -505,7 +488,7 @@ async function loadPacientes(q = '') {
     const tbody = $('pacientes-tbody');
     if (!tbody) return;
 
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       tbody.innerHTML = `<tr><td colspan="7" class="empty"><div class="icon">🧑‍⚕️</div>No se encontraron pacientes</td></tr>`;
       return;
     }
@@ -607,7 +590,7 @@ async function loadCitas() {
     const tbody = $('citas-tbody');
     if (!tbody) return;
 
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       tbody.innerHTML = `<tr><td colspan="7" class="empty"><div class="icon">📅</div>Sin citas registradas</td></tr>`;
       return;
     }
@@ -685,7 +668,6 @@ window.deleteCita = async id => {
     loadCitas();
     loadDashboard();
     if (typeof loadCalendar === 'function') loadCalendar();
-    if (window.calendar) window.calendar.refetchEvents();
   } catch (err) { alert(err.message); }
 };
 
@@ -729,22 +711,175 @@ if ($('form-cita')) {
       loadCitas();
       loadDashboard();
       if (typeof loadCalendar === 'function') loadCalendar();
-      if (window.calendar) window.calendar.refetchEvents();
     } catch (err) { showAlert(err.message, 'error', 'modal-alert-cita'); }
   });
 }
+
+// ── CALENDARIO MANUAL (RESTAURADO) ─────────────
+let calDate = new Date();
+
+async function loadCalendar() {
+  const year = calDate.getFullYear();
+  const month = calDate.getMonth();
+
+  const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const calTitleEl = $('cal-title');
+  if (calTitleEl) calTitleEl.textContent = `${names[month]} ${year}`;
+
+  try {
+    const citas = await api('GET', '/citas?estado=programada') || [];
+    const citaMap = {};
+    const citasByDate = {};
+
+    citas.forEach(c => {
+      const key = c.fecha_hora ? c.fecha_hora.slice(0, 10) : null;
+      if (!key) return;
+      citaMap[key] = (citaMap[key] || 0) + 1;
+      citasByDate[key] = citasByDate[key] || [];
+      citasByDate[key].push(c);
+    });
+
+    const container = document.getElementById('calendar');
+    if (!container) return;
+
+    container.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.id = 'cal-grid';
+    grid.className = 'calendar-grid';
+
+    const headers = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    headers.forEach(h => {
+      const el = document.createElement('div');
+      el.className = 'cal-header';
+      el.textContent = h;
+      grid.appendChild(el);
+    });
+
+    const first = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date().toISOString().slice(0, 10);
+
+    for (let i = 0; i < first; i++) {
+      const div = document.createElement('div');
+      div.className = 'cal-day other-month';
+      grid.appendChild(div);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const div = document.createElement('div');
+      div.className = 'cal-day' + (key === today ? ' today' : '');
+      div.setAttribute('data-date', key);
+
+      const dotsHtml = citaMap[key]
+        ? `<div class="dot-row">${'<div class="dot"></div>'.repeat(Math.min(citaMap[key], 4))}</div>`
+        : '';
+
+      div.innerHTML = `<span class="cal-day-number">${d}</span>${dotsHtml}`;
+      div.title = citaMap[key] ? `${citaMap[key]} cita(s)` : '';
+
+      div.addEventListener('click', async () => {
+        openDayModal(key, citasByDate[key] || []);
+      });
+
+      grid.appendChild(div);
+    }
+
+    container.appendChild(grid);
+  } catch (err) {
+    console.error('Error en loadCalendar:', err);
+  }
+}
+
+function openDayModal(dateStr, events) {
+  const modal = document.getElementById('dayModal');
+  const modalDateTitle = document.getElementById('modalDateTitle');
+  const eventsList = document.getElementById('eventsList');
+  const noEvents = document.getElementById('noEvents');
+
+  if (!modal || !modalDateTitle || !eventsList || !noEvents) return;
+
+  modal.classList.add('open');
+  modal.style.zIndex = '10000';
+  modalDateTitle.textContent = new Date(dateStr).toLocaleDateString();
+  eventsList.innerHTML = '';
+
+  if (!events || events.length === 0) {
+    noEvents.style.display = 'block';
+    return;
+  }
+  noEvents.style.display = 'none';
+
+  events.forEach(e => {
+    const li = document.createElement('li');
+    li.className = 'event-item';
+
+    const left = document.createElement('div');
+    const title = document.createElement('div');
+    title.className = 'event-title';
+    title.textContent = e.titulo || e.proposito || e.motivo || 'Sin título';
+
+    const time = document.createElement('div');
+    time.className = 'event-time';
+    const inicio = e.fecha_hora || e.inicio || e.start;
+    const fin = e.fin || e.end;
+    
+    let timeString = '';
+    try { timeString = inicio ? new Date(inicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''; } catch(err){}
+    time.textContent = timeString;
+
+    left.appendChild(title);
+    left.appendChild(time);
+
+    const actions = document.createElement('div');
+    actions.className = 'event-actions';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Eliminar';
+    deleteBtn.addEventListener('click', async () => {
+      if (!confirm('Eliminar esta cita?')) return;
+      try {
+        await api('DELETE', `/citas/${e.id || e.id_cita || e.id_cita_evento}`);
+        loadCalendar();
+        closeDayModal();
+      } catch (err) {
+        alert('No se pudo eliminar la cita.');
+      }
+    });
+
+    actions.appendChild(deleteBtn);
+    li.appendChild(left);
+    li.appendChild(actions);
+    eventsList.appendChild(li);
+  });
+}
+
+function closeDayModal() {
+  const modal = document.getElementById('dayModal');
+  if (modal) modal.classList.remove('open');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const calPrevBtn = document.getElementById('cal-prev');
+  const calNextBtn = document.getElementById('cal-next');
+  if (calPrevBtn) calPrevBtn.addEventListener('click', () => { calDate.setMonth(calDate.getMonth() - 1); loadCalendar(); });
+  if (calNextBtn) calNextBtn.addEventListener('click', () => { calDate.setMonth(calDate.getMonth() + 1); loadCalendar(); });
+});
 
 // ── HISTORIAL CLÍNICO ──────────────────────────
 let editingHistorial = null;
 
 async function loadHistorial() {
-  if (!puedeGestionarHistorial()) return;
+  if (!puedeGestionarHistorial()) {
+    alert('No tiene permiso para ver el historial.');
+    return;
+  }
   try {
     const rows = await api('GET', '/historial');
     const tbody = $('historial-tbody');
     if (!tbody) return;
 
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       tbody.innerHTML = `<tr><td colspan="7" class="empty"><div class="icon">📋</div>Sin historiales registrados</td></tr>`;
       return;
     }
@@ -763,7 +898,10 @@ async function loadHistorial() {
         </td>
       </tr>
     `).join('');
-  } catch (err) { console.error(err); }
+  } catch (err) { 
+    console.error(err);
+    alert('Error cargando historial: ' + err.message);
+  }
 }
 
 async function populateHistorialSelects() {
@@ -840,13 +978,16 @@ if ($('form-historial')) {
 let editingHorario = null;
 
 async function loadHorarios() {
-  if (!tienePermiso('horarios')) return;
+  if (!tienePermiso('horarios')) {
+    alert('No tiene permiso para ver horarios.');
+    return;
+  }
   try {
     const rows = await api('GET', '/horarios');
     const tbody = $('horarios-tbody');
     if (!tbody) return;
 
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       tbody.innerHTML = `<tr><td colspan="7" class="empty"><div class="icon">⏰</div>No hay horarios registrados</td></tr>`;
       return;
     }
@@ -865,7 +1006,10 @@ async function loadHorarios() {
         </td>
       </tr>
     `).join('');
-  } catch (err) { console.error(err); }
+  } catch (err) { 
+    console.error(err); 
+    alert('Error cargando horarios: ' + err.message);
+  }
 }
 
 async function populateHorarioPsicologos() {
@@ -943,13 +1087,16 @@ if ($('form-horario')) {
 
 // ── SESIONES CLÍNICAS ──────────────────────────
 async function loadSesiones() {
-  if (!tienePermiso('sesiones')) return;
+  if (!tienePermiso('sesiones')) {
+    alert('No tiene permiso para ver sesiones.');
+    return;
+  }
   try {
     const rows = await api('GET', '/sesiones');
     const tbody = $('sesiones-tbody');
     if (!tbody) return;
 
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       tbody.innerHTML = `<tr><td colspan="7" class="empty"><div class="icon">🧠</div>No hay sesiones clínicas registradas</td></tr>`;
       return;
     }
@@ -965,7 +1112,10 @@ async function loadSesiones() {
         <td>${activoBadge(s.activo)}</td>
       </tr>
     `).join('');
-  } catch (err) { console.error(err); }
+  } catch (err) { 
+    console.error(err);
+    alert('Error cargando sesiones: ' + err.message);
+  }
 }
 
 async function populateSesionCitas() {
@@ -1019,13 +1169,16 @@ if ($('form-sesion')) {
 
 // ── RECORDATORIOS ──────────────────────────────
 async function loadRecordatorios() {
-  if (!tienePermiso('recordatorios')) return;
+  if (!tienePermiso('recordatorios')) {
+    alert('No tiene permiso para ver recordatorios.');
+    return;
+  }
   try {
     const rows = await api('GET', '/recordatorios');
     const tbody = $('recordatorios-tbody');
     if (!tbody) return;
 
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       tbody.innerHTML = `<tr><td colspan="8" class="empty"><div class="icon">🔔</div>No hay recordatorios registrados</td></tr>`;
       return;
     }
@@ -1044,7 +1197,10 @@ async function loadRecordatorios() {
         </td>
       </tr>
     `).join('');
-  } catch (err) { console.error(err); }
+  } catch (err) { 
+    console.error(err);
+    alert('Error cargando recordatorios: ' + err.message);
+  }
 }
 
 window.marcarRecordatorioEnviado = async id => {
@@ -1100,7 +1256,10 @@ if ($('form-recordatorio')) {
 
 // ── REPORTES ───────────────────────────────────
 async function loadReportes() {
-  if (!tienePermiso('reportes')) return;
+  if (!tienePermiso('reportes')) {
+    alert('No tiene permiso para ver reportes.');
+    return;
+  }
   await cargarReporteResumen();
 }
 
@@ -1108,8 +1267,17 @@ async function cargarReporteResumen() {
   try {
     const rows = await api('GET', '/reportes/resumen');
     if ($('reportes-head')) $('reportes-head').innerHTML = `<tr><th>Indicador</th><th>Total</th></tr>`;
-    if ($('reportes-tbody')) $('reportes-tbody').innerHTML = rows.map(r => `<tr><td>${r.indicador}</td><td>${r.total}</td></tr>`).join('');
-  } catch (err) { console.error(err); }
+    if ($('reportes-tbody')) {
+      if (!rows || !rows.length) {
+        $('reportes-tbody').innerHTML = `<tr><td colspan="2" class="empty">No hay datos de resumen</td></tr>`;
+      } else {
+        $('reportes-tbody').innerHTML = rows.map(r => `<tr><td>${r.indicador}</td><td>${r.total}</td></tr>`).join('');
+      }
+    }
+  } catch (err) { 
+    console.error(err);
+    alert('Error cargando reportes: ' + err.message);
+  }
 }
 
 async function cargarReporteCitas() {
@@ -1117,7 +1285,7 @@ async function cargarReporteCitas() {
     const rows = await api('GET', '/reportes/citas');
     if ($('reportes-head')) $('reportes-head').innerHTML = `<tr><th>#</th><th>Fecha y Hora</th><th>Paciente</th><th>Psicólogo</th><th>Motivo</th><th>Estado</th></tr>`;
     if ($('reportes-tbody')) {
-      if (!rows.length) {
+      if (!rows || !rows.length) {
         $('reportes-tbody').innerHTML = `<tr><td colspan="6" class="empty"><div class="icon">📊</div>No hay citas registradas</td></tr>`;
         return;
       }
@@ -1140,13 +1308,16 @@ if ($('btn-reporte-citas')) $('btn-reporte-citas').addEventListener('click', car
 
 // ── AUDITORÍA ──────────────────────────────────
 async function loadAuditoria() {
-  if (!tienePermiso('auditoria')) return;
+  if (!tienePermiso('auditoria')) {
+    alert('No tiene permiso para ver auditoría.');
+    return;
+  }
   try {
     const rows = await api('GET', '/auditoria');
     const tbody = $('auditoria-tbody');
     if (!tbody) return;
 
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       tbody.innerHTML = `<tr><td colspan="7" class="empty"><div class="icon">🛡️</div>No hay registros de auditoría</td></tr>`;
       return;
     }
@@ -1162,7 +1333,10 @@ async function loadAuditoria() {
         <td>${fmtDate(a.fecha)}</td>
       </tr>
     `).join('');
-  } catch (err) { console.error(err); }
+  } catch (err) { 
+    console.error(err);
+    alert('Error cargando auditoría: ' + err.message);
+  }
 }
 
 // ── DELEGACIÓN DE EVENTOS GLOBAL ───────────────
@@ -1189,12 +1363,11 @@ document.addEventListener('click', async (e) => {
   if (action === 'marcarEnviado' && typeof window.marcarRecordatorioEnviado === 'function') window.marcarRecordatorioEnviado(id);
 });
 
-// ── CLOSE MODALS ON OVERLAY CLICK ──────────────
+// ── CERRAR MODALES AL CLICKEAR FUERA ───────────
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => {
     if (e.target === overlay) {
       overlay.classList.remove('open');
-      overlay.style.display = 'none';
     }
   });
 });
@@ -1206,6 +1379,7 @@ const loaders = {
   psicologos: loadPsicologos,
   pacientes: loadPacientes,
   citas: loadCitas,
+  calendario: loadCalendar,
   historial: loadHistorial,
   sesiones: loadSesiones,
   horarios: loadHorarios,
@@ -1214,7 +1388,7 @@ const loaders = {
   auditoria: loadAuditoria
 };
 
-// ── RESTAURAR SESIÓN Y CALENDARIO ───────────────
+// ── INICIALIZACIÓN AL RECARGAR ─────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const saved = sessionStorage.getItem('sigch_user');
 
@@ -1236,50 +1410,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Inicializador FullCalendar (Asegúrate de tener el div con id "calendar" en tu HTML)
-  const calendarEl = document.getElementById('calendar');
-  if (calendarEl && typeof FullCalendar !== 'undefined') {
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: 'dayGridMonth',
-      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
-      selectable: true,
-      editable: true,
-      eventDisplay: 'block',
-      dateClick: async function(info) {
-        if (typeof window.openCreateModal === 'function') {
-          window.openCreateModal().then(() => {
-            const fechaInput = $('c-fecha') || $('edit-fecha_hora');
-            if (fechaInput) fechaInput.value = info.dateStr + 'T08:00'; 
-          });
-        }
-      },
-      events: async function(fetchInfo, successCallback, failureCallback) {
-        try {
-          const start = encodeURIComponent(fetchInfo.startStr);
-          const end = encodeURIComponent(fetchInfo.endStr);
-          const data = await api('GET', `/api/eventos?start=${start}&end=${end}`);
-          
-          const events = data.map(e => ({ 
-            id: e.id_evento || e.id_cita, 
-            title: e.titulo || e.motivo || 'Cita', 
-            start: e.inicio || e.fecha_hora, 
-            end: e.fin 
-          }));
-          
-          successCallback(events);
-        } catch (err) { 
-          console.error('Error cargando FullCalendar:', err);
-          failureCallback(err); 
-        }
-      },
-      eventClick: function(info) {
-        if (typeof window.editCita === 'function') {
-          window.editCita(info.event.id);
-        }
-      }
-    });
-
-    calendar.render();
-    window.calendar = calendar;
-  }
+  // Carga manual del calendario al inicio si estamos en esa vista
+  if ($('calendar')) loadCalendar();
 });
