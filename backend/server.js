@@ -10,17 +10,17 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(
-cors({
-origin: process.env.FRONTEND_ORIGIN || true,
-credentials: true
-})
+  cors({
+    origin: process.env.FRONTEND_ORIGIN || true,
+    credentials: true
+  })
 );
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/healthz', (req, res) => {
-res.status(200).json({ status: 'ok' });
+  res.status(200).json({ status: 'ok' });
 });
 
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
@@ -38,27 +38,27 @@ app.use('/api/reportes', require('./routes/reportes'));
 app.use('/api/eventos', require('./routes/eventos'));
 
 app.get('/', (req, res) => {
-res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
 });
 
 app.use((err, req, res, next) => {
-console.error(err && err.stack ? err.stack : err);
-res.status(500).json({ error: 'Error interno del servidor' });
+  console.error(err && err.stack ? err.stack : err);
+  res.status(500).json({ error: 'Error interno del servidor' });
 });
 
 process.on('SIGINT', () => {
-if (module.exports && module.exports.pool && typeof module.exports.pool.end === 'function') {
-module.exports.pool.end().then(() => process.exit(0)).catch(() => process.exit(1));
-} else {
-process.exit(0);
-}
+  if (module.exports && module.exports.pool && typeof module.exports.pool.end === 'function') {
+    module.exports.pool.end().then(() => process.exit(0)).catch(() => process.exit(1));
+  } else {
+    process.exit(0);
+  }
 });
 
 if (require.main === module) {
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-console.log(SIGCH corriendo en http://localhost:${PORT});
-});
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log('SIGCH corriendo en http://localhost:' + PORT);
+  });
 }
 
 module.exports = app;
