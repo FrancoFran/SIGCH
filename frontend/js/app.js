@@ -302,20 +302,19 @@ document.querySelectorAll('[data-nav]').forEach(a => {
 
 // ── MODAL HELPERS ──────────────────────────────
 function openModal(id) {
-  $(id).classList.add('open');
+  const modal = $(id);
+  if (modal) {
+    modal.classList.add('open');
+    modal.style.display = 'flex'; // Fuerza a que se muestre el overlay
+    modal.style.zIndex = '10000'; // Fuerza que esté al frente
+    
+    const content = modal.querySelector('.modal-content');
+    if (content) {
+      content.style.display = 'block';
+      content.style.zIndex = '10001';
+    }
+  }
 }
-
-function closeModal(id) {
-  $(id).classList.remove('open');
-}
-
-document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const modal = btn.closest('.modal-overlay');
-    if (modal) modal.classList.remove('open');
-  });
-});
-
 // ── DASHBOARD ──────────────────────────────────
 async function loadDashboard() {
   try {
