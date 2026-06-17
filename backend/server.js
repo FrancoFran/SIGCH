@@ -8,13 +8,17 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-// Helmet con Content Security Policy que permite cargar FullCalendar desde jsdelivr
+// Helmet con Content Security Policy que permite cargar FullCalendar desde jsdelivr,
+// Google Fonts y, temporalmente, atributos inline (onclick, onsubmit, etc.) mediante scriptSrcAttr.
+// Nota: scriptSrcAttr: ["'unsafe-inline'"] es una relajación temporal de seguridad.
+// Quita esa directiva cuando hayas migrado los handlers inline a addEventListener.
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        scriptSrcAttr: ["'unsafe-inline'"], // Permite atributos inline temporalmente
         styleSrc: ["'self'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "'unsafe-inline'"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:"],
@@ -27,7 +31,6 @@ app.use(
     }
   })
 );
-
 
 app.use(
   cors({
