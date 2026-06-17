@@ -14,24 +14,29 @@ function showAlert(msg, type = 'error', containerId = 'modal-alert') {
   setTimeout(() => el.className = 'alert', 4000);
 }
 
-async function api(method, endpoint, body) {
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json' }
-  };
+// Helper api robusto (reemplaza la función api existente)
+async function api(method, path, body = null) {
+  const token = (function() {
+    try { return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken'); }
+    catch (e) { return sessionStorage.getItem('accessToken'); }
+  })();
 
-  if (currentUser) {
-    opts.headers['x-user-id'] = currentUser.id_usuario;
-    opts.headers['x-user-rol'] = currentUser.rol;
-  }
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
 
+  const opts = { method, headers };
   if (body) opts.body = JSON.stringify(body);
 
-  const res = await fetch(API + endpoint, opts);
-  const data = await res.json();
-
-  if (!res.ok) throw new Error(data.error || 'Error desconocido');
-
+  const res = await fetch('/api' + path, opts);
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+  if (!res.ok) {
+    const err = new Error(data && data.error ? data.error : `HTTP ${res.status}`);
+    err.status = res.status;
+    err.raw = data;
+    throw err;
+  }
   return data;
 }
 
