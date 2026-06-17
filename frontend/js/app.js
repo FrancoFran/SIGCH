@@ -235,9 +235,18 @@ $('login-form').addEventListener('submit', async e => {
     const data = await api('POST', '/usuarios/auth/login', { email, contrasena });
     const token = data.accessToken || data.token || data.access_token || data.access;
     currentUser = data.user;
-    if (token) localStorage.setItem('accessToken', token);
-    localStorage.setItem('user', JSON.stringify(currentUser));
+    
+    // --- INICIO DEL CAMBIO: Prevención de errores si el navegador bloquea cookies/almacenamiento ---
+    try {
+      if (token) localStorage.setItem('accessToken', token);
+      localStorage.setItem('user', JSON.stringify(currentUser));
+    } catch (storageErr) {
+      console.warn('localStorage bloqueado, usando sessionStorage como respaldo');
+    }
     sessionStorage.setItem('sigch_user', JSON.stringify(currentUser));
+    if (token) sessionStorage.setItem('accessToken', token);
+    // --- FIN DEL CAMBIO ---
+
     $('login-screen').style.display = 'none';
     $('sidebar').style.display = 'flex';
     $('main').style.display = 'block';
@@ -254,13 +263,20 @@ $('login-form').addEventListener('submit', async e => {
 $('logout-btn').addEventListener('click', () => {
   currentUser = null;
   sessionStorage.removeItem('sigch_user');
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('user');
+  sessionStorage.removeItem('accessToken');
+  
+  // Try/catch aquí también por si el navegador bloquea la limpieza
+  try {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
+  } catch(e) {}
+
   $('login-screen').style.display = 'flex';
   $('sidebar').style.display = 'none';
   $('main').style.display = 'none';
   $('login-pass').value = '';
 });
+
 
 // ── NAVIGATION ─────────────────────────────────
 function navigate(section) {
@@ -387,8 +403,8 @@ async function loadUsuarios() {
         <td>${rolBadge(u.rol)}</td>
         <td>${activoBadge(u.activo)}</td>
         <td>
-          <button class="btn btn-edit btn-sm" onclick="editUsuario(${u.id_usuario})">✏ Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteUsuario(${u.id_usuario}, ${jsString(u.nombre_completo)})">✕</button>
+          <button class="btn btn-edit btn-sm" data-action="editUsuario(${u.id_usuario})">✏ Editar</button>
+          <button class="btn btn-danger btn-sm" data-action="deleteUsuario(${u.id_usuario}, ${jsString(u.nombre_completo)})">✕</button>
         </td>
       </tr>
     `).join('');
@@ -521,8 +537,8 @@ async function loadPsicologos() {
         <td>${p.registro_profesional}</td>
         <td>${activoBadge(p.activo)}</td>
         <td>
-          <button class="btn btn-edit btn-sm" onclick="editPsicologo(${p.id_psicologo})">✏ Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="deletePsicologo(${p.id_psicologo})">✕</button>
+          <button class="btn btn-edit btn-sm" data-action="editPsicologo(${p.id_psicologo})">✏ Editar</button>
+          <button class="btn btn-danger btn-sm" data-action="deletePsicologo(${p.id_psicologo})">✕</button>
         </td>
       </tr>
     `).join('');
@@ -670,8 +686,8 @@ async function loadPacientes(q = '') {
     tbody.innerHTML = rows.map(p => {
       const acciones = puedeGestionarPacientes()
         ? `
-          <button class="btn btn-edit btn-sm" onclick="editPaciente(${p.id_paciente})">✏ Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="deletePaciente(${p.id_paciente})">✕</button>
+          <button class="btn btn-edit btn-sm" data-action="editPaciente(${p.id_paciente})">✏ Editar</button>
+          <button class="btn btn-danger btn-sm" data-action="deletePaciente(${p.id_paciente})">✕</button>
         `
         : '<span class="badge badge-gray">Solo lectura</span>';
 
@@ -806,8 +822,8 @@ async function loadCitas() {
     tbody.innerHTML = rows.map(c => {
       const acciones = puedeGestionarCitas()
         ? `
-          <button class="btn btn-edit btn-sm" onclick="editCita(${c.id_cita})">✏ Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteCita(${c.id_cita})">✕ Cancelar</button>
+          <button class="btn btn-edit btn-sm" data-action="editCita(${c.id_cita})">✏ Editar</button>
+          <button class="btn btn-danger btn-sm" data-action="deleteCita(${c.id_cita})">✕ Cancelar</button>
         `
         : '<span class="badge badge-gray">Solo lectura</span>';
 
@@ -851,32 +867,50 @@ async function populateCitaSelects() {
   }
 }
 
+// --- NUEVO BLOQUE UNIFICADO PARA EDITAR CITAS ---
+
+window.openEditModal = async (cita) => {
+  editingCita = cita.id_cita || cita.id;
+  await populateCitaSelects(); // Trae la lista de psicólogos y pacientes
+  
+  // Esta pequeña función es la magia: llena el input sin importar qué ID tenga en tu HTML
+  const setValue = (id1, id2, val) => {
+    if (document.getElementById(id1)) document.getElementById(id1).value = val;
+    if (document.getElementById(id2)) document.getElementById(id2).value = val;
+  };
+
+  // Llena los IDs originales (ej: c-paciente) o los de tu otra vista (ej: edit-paciente_id)
+  setValue('c-paciente', 'edit-paciente_id', cita.id_paciente || cita.paciente_id);
+  setValue('c-psicologo', 'edit-psicologo_id', cita.id_psicologo || cita.psicologo_id);
+  
+  const fecha = (cita.fecha_hora || cita.inicio || cita.start || '').slice(0, 16);
+  setValue('c-fecha', 'edit-fecha_hora', fecha);
+  setValue('c-motivo', 'edit-motivo', cita.motivo || cita.title || cita.titulo || '');
+  
+  if (document.getElementById('c-estado')) document.getElementById('c-estado').value = cita.estado || 'programada';
+  if (document.getElementById('modal-cita-title')) document.getElementById('modal-cita-title').textContent = 'Editar Cita';
+  if (document.getElementById('c-estado-group')) document.getElementById('c-estado-group').style.display = 'block';
+
+  // Intenta abrir el modal principal de citas o los de respaldo
+  if (document.getElementById('modal-cita')) openModal('modal-cita');
+  else if (document.getElementById('editModal')) openModal('editModal');
+  else openModal('dayModal');
+};
+
 window.editCita = async id => {
   if (!puedeGestionarCitas()) {
-    alert('No tiene permiso para editar citas.');
+    alert('No tienes permiso para editar citas.');
     return;
   }
-
-  editingCita = id;
-  await populateCitaSelects();
-
+  
   try {
-    const c = await api('GET', `/citas/${id}`);
-
-    $('c-paciente').value = c.id_paciente;
-    $('c-psicologo').value = c.id_psicologo;
-    $('c-fecha').value = c.fecha_hora?.slice(0, 16) || '';
-    $('c-motivo').value = c.motivo || '';
-    $('c-estado').value = c.estado;
-
-    $('modal-cita-title').textContent = 'Editar Cita';
-    $('c-estado-group').style.display = 'block';
-
-    openModal('modal-cita');
+    const cita = await api('GET', `/citas/${id}`);
+    await window.openEditModal(cita);
   } catch (err) {
-    alert(err.message);
+    alert(err.message || 'Error al cargar la cita');
   }
 };
+
 
 window.deleteCita = async id => {
   if (!puedeGestionarCitas()) {
@@ -976,8 +1010,8 @@ async function loadHistorial() {
         <td>${h.diagnostico || '—'}</td>
         <td>${activoBadge(h.activo)}</td>
         <td>
-          <button class="btn btn-edit btn-sm" onclick="editHistorial(${h.id_historial})">✏ Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteHistorial(${h.id_historial})">✕</button>
+          <button class="btn btn-edit btn-sm" data-action="editHistorial(${h.id_historial})">✏ Editar</button>
+          <button class="btn btn-danger btn-sm" data-action="deleteHistorial(${h.id_historial})">✕</button>
         </td>
       </tr>
     `).join('');
@@ -1341,8 +1375,8 @@ async function loadHorarios() {
         <td>${h.hora_fin}</td>
         <td>${activoBadge(h.activo)}</td>
         <td>
-          <button class="btn btn-edit btn-sm" onclick="editHorario(${h.id_horario})">✏ Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteHorario(${h.id_horario})">✕</button>
+          <button class="btn btn-edit btn-sm" data-action="editHorario(${h.id_horario})">✏ Editar</button>
+          <button class="btn btn-danger btn-sm" data-action="deleteHorario(${h.id_horario})">✕</button>
         </td>
       </tr>
     `).join('');
@@ -1530,7 +1564,7 @@ async function loadRecordatorios() {
           ${
             r.enviado
               ? '<span class="badge badge-gray">Sin acciones</span>'
-              : `<button class="btn btn-edit btn-sm" onclick="marcarRecordatorioEnviado(${r.id_recordatorio})">Marcar enviado</button>`
+              : `<button class="btn btn-edit btn-sm" data-action="marcarRecordatorioEnviado(${r.id_recordatorio})">Marcar enviado</button>`
           }
         </td>
       </tr>
@@ -1938,21 +1972,29 @@ document.addEventListener('DOMContentLoaded', function() {
         noEvents.style.display = 'block';
       }
     },
-    events: async function(fetchInfo, successCallback, failureCallback) {
+    
+events: async function(fetchInfo, successCallback, failureCallback) {
       try {
-        const start = fetchInfo.startStr;
-        const end = fetchInfo.endStr;
-        const token = localStorage.getItem('accessToken') || '';
-        const res = await fetch(`/api/eventos?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        if (!res.ok) throw new Error('Error cargando eventos');
-        const data = await res.json();
-        const events = data.map(e => ({ id: e.id_evento, title: e.titulo, start: e.inicio, end: e.fin }));
+        const start = encodeURIComponent(fetchInfo.startStr);
+        const end = encodeURIComponent(fetchInfo.endStr);
+        
+        // Usamos tu helper api() para que inserte el token y maneje los errores automáticamente
+        const data = await api('GET', `/api/eventos?start=${start}&end=${end}`);
+        
+        const events = data.map(e => ({ 
+          id: e.id_evento || e.id_cita, 
+          title: e.titulo || e.motivo || 'Cita', 
+          start: e.inicio || e.fecha_hora, 
+          end: e.fin 
+        }));
+        
         successCallback(events);
-      } catch (err) { failureCallback(err); }
+      } catch (err) { 
+        console.error('Error cargando FullCalendar:', err);
+        failureCallback(err); 
+      }
     }
-  });
+  
 
   calendar.render();
   window.calendar = calendar;
@@ -1982,28 +2024,6 @@ function fillFormFields(prefix, data) {
       console.debug('fillFormFields: no existe', id);
     }
   });
-}
-
-function openEditModal(cita) {
-  // Asegura que el modal se muestre y se rellenen campos
-  const modal = document.getElementById('dayModal') || document.getElementById('editModal');
-  if (!modal) { console.warn('openEditModal: modal no encontrado'); return; }
-  // Ejemplo de mapeo: adapta claves según tu API
-  const payload = {
-    id_cita: cita.id_cita || cita.id,
-    paciente_id: cita.id_paciente || cita.paciente_id,
-    psicologo_id: cita.id_psicologo || cita.psicologo_id,
-    fecha_hora: cita.fecha_hora || cita.inicio || cita.start,
-    motivo: cita.motivo || cita.title || cita.titulo
-  };
-  // Rellena inputs con ids: edit-id_cita, edit-paciente_id, edit-psicologo_id, edit-fecha_hora, edit-motivo
-  fillFormFields('edit-', payload);
-  // muestra modal
-  modal.style.display = 'block';
-  // asegúrate que el contenido sea visible
-  const content = modal.querySelector('.modal-content');
-  if (content) { content.style.display = 'block'; content.style.zIndex = 10001; }
-  console.log('openEditModal: modal abierto y rellenado', payload);
 }
 
 // Handler para crear nuevo (limpia campos y abre modal)
@@ -2099,3 +2119,25 @@ document.addEventListener('click', (e) => {
 
   dbgLog('Debug panel inicializado');
 })();
+
+
+// Delegador Global de Eventos
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  const name = btn.dataset.name;
+
+  if (action === 'editUsuario') window.editUsuario(id);
+  if (action === 'deleteUsuario') window.deleteUsuario(id, name);
+  if (action === 'editPaciente') window.editPaciente(id);
+  if (action === 'deletePaciente') window.deletePaciente(id);
+  if (action === 'editCita') window.editCita(id);
+  if (action === 'deleteCita') window.deleteCita(id);
+  if (action === 'createCita') {
+    if (typeof window.openCreateModal === 'function') window.openCreateModal();
+  }
+});
+
