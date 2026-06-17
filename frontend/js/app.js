@@ -16,28 +16,43 @@ function showAlert(msg, type = 'error', containerId = 'modal-alert') {
 
 // Helper api robusto (reemplaza la función api existente)
 async function api(method, path, body = null) {
-  const token = (function() {
-    try { return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken'); }
-    catch (e) { return sessionStorage.getItem('accessToken'); }
-  })();
+  // 1. Fallback seguro para Tracking Prevention
+  let token = null;
+  try {
+    token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+  } catch (e) {
+    token = sessionStorage.getItem('accessToken');
+  }
 
   const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = 'Bearer ' + token;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const opts = { method, headers };
   if (body) opts.body = JSON.stringify(body);
-
-  const res = await fetch('/api' + path, opts);
-  const text = await res.text();
-  let data;
-  try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
-  if (!res.ok) {
-    const err = new Error(data && data.error ? data.error : `HTTP ${res.status}`);
-    err.status = res.status;
-    err.raw = data;
-    throw err;
+  
+  try {
+    const res = await fetch(API + path, opts);
+    const text = await res.text();
+    let data;
+    
+    // 2. Prevenir crasheo si Express devuelve HTML (Error 500)
+    try { 
+      data = text ? JSON.parse(text) : null; 
+    } catch (e) { 
+      data = text; 
+    }
+    
+    if (!res.ok) {
+      const err = new Error(data && data.error ? data.error : `HTTP ${res.status}`);
+      err.status = res.status;
+      err.raw = data;
+      throw err;
+    }
+    return data;
+  } catch (error) {
+    console.error(`[API Error] ${method} ${path}:`, error.message || error.status);
+    throw error;
   }
-  return data;
 }
 
 async function registrarAuditoria(modulo, accion, descripcion) {
