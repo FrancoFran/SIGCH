@@ -209,38 +209,36 @@ function aplicarPermisosUI() {
 // ── AUTH ───────────────────────────────────────
 $('login-form').addEventListener('submit', async e => {
   e.preventDefault();
-
   const email = $('login-email').value;
   const contrasena = $('login-pass').value;
-
   try {
     const data = await api('POST', '/usuarios/auth/login', { email, contrasena });
-
+    const token = data.accessToken || data.token || data.access_token || data.access;
     currentUser = data.user;
+    if (token) localStorage.setItem('accessToken', token);
+    localStorage.setItem('user', JSON.stringify(currentUser));
     sessionStorage.setItem('sigch_user', JSON.stringify(currentUser));
-
     $('login-screen').style.display = 'none';
     $('sidebar').style.display = 'flex';
     $('main').style.display = 'block';
-
-    $('user-name').textContent = currentUser.nombre_completo;
-    $('user-role').textContent = currentUser.rol;
-
+    $('user-name').textContent = currentUser.nombre_completo || currentUser.email || '—';
+    $('user-role').textContent = currentUser.rol || '—';
     aplicarPermisosUI();
     navigate('dashboard');
+    if (window.calendar && typeof window.calendar.refetchEvents === 'function') window.calendar.refetchEvents();
   } catch (err) {
-    showAlert(err.message, 'error', 'login-alert');
+    showAlert(err.message || (err.error || 'Error de autenticación'), 'error', 'login-alert');
   }
 });
 
 $('logout-btn').addEventListener('click', () => {
   currentUser = null;
   sessionStorage.removeItem('sigch_user');
-
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('user');
   $('login-screen').style.display = 'flex';
   $('sidebar').style.display = 'none';
   $('main').style.display = 'none';
-
   $('login-pass').value = '';
 });
 
