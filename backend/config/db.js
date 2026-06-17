@@ -1,5 +1,6 @@
-// backend/config/db.js
 const { Pool } = require('pg');
+
+const maxPool = Number(process.env.DB_POOL_MAX) || (process.env.VERCEL ? 3 : 10);
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -8,10 +9,27 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   port: Number(process.env.DB_PORT) || 5432,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-  max: Number(process.env.DB_POOL_MAX) || 10,
+  max: maxPool,
   idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30000,
   connectionTimeoutMillis: Number(process.env.DB_CONN_TIMEOUT_MS) || 2000
 });
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection at:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+if (process.env.NODE_ENV !== 'production') {
+  pool.query('SELECT 1').then(() => {
+    console.log('DB connection OK');
+  }).catch((err) => {
+    console.error('DB connection error:', err && err.message ? err.message : err);
+  });
+}
 
 process.on('SIGINT', async () => {
   try {
